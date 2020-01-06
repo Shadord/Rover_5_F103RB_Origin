@@ -1,0 +1,15 @@
+main.c:138:5:main	8	static
+main.c:206:6:SystemClock_Config	88	static
+main.c:263:13:MX_NVIC_Init	8	static
+main.c:274:6:Gestion_Commandes	4	static
+main.c:827:6:controle	8	static
+main.c:838:6:ACS	4	static
+main.c:932:6:Calcul_Vit	4	static
+main.c:945:6:regulateur	24	static
+main.c:1036:6:HAL_UART_RxCpltCallback	16	static
+main.c:1077:6:HAL_ADC_ConvCpltCallback	16	static
+main.c:1087:6:HAL_TIM_PeriodElapsedCallback	16	static
+main.c:1124:6:HAL_GPIO_EXTI_Callback	16	static
+main.c:1137:6:HAL_ADC_LevelOutOfWindowCallback	16	static
+main.c:1148:6:_Error_Handler	16	static
+main.c:1166:6:assert_failed	16	static
