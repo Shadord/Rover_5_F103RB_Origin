@@ -10,7 +10,7 @@
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
-  * COPYRIGHT(c) 2019 STMicroelectronics
+  * COPYRIGHT(c) 2020 STMicroelectronics
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -68,6 +68,8 @@
 #define IR3_in_GPIO_Port GPIOB
 #define DIR2_Pin GPIO_PIN_2
 #define DIR2_GPIO_Port GPIOB
+#define GPIO_TRIG_SONAR_Pin GPIO_PIN_10
+#define GPIO_TRIG_SONAR_GPIO_Port GPIOB
 #define PWMD_Pin GPIO_PIN_11
 #define PWMD_GPIO_Port GPIOB
 #define IR1_out_Pin GPIO_PIN_12
@@ -78,6 +80,10 @@
 #define IR2_out_GPIO_Port GPIOB
 #define DIR1_Pin GPIO_PIN_8
 #define DIR1_GPIO_Port GPIOC
+#define TIM_ECHO_SONAR_Pin GPIO_PIN_8
+#define TIM_ECHO_SONAR_GPIO_Port GPIOA
+#define TIM_SERVO_OUT_Pin GPIO_PIN_11
+#define TIM_SERVO_OUT_GPIO_Port GPIOA
 #define IR3_out_Pin GPIO_PIN_12
 #define IR3_out_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
