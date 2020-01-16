@@ -95,6 +95,7 @@ volatile uint16_t Dist_ACS_1, Dist_ACS_2, Dist_ACS_3, Dist_ACS_4, VBat; // Valeu
 volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
 volatile unsigned int Tpark = 0;
+volatile unsigned int Tmod = 100;
 volatile unsigned int T_sonar = 0; // Temps permettant de faire une mesure tous les X ms
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
@@ -971,15 +972,23 @@ void ACS(void) {
 }
 
 void Calcul_Vit(void) {
+	static int first = 0;
 
 	DistD = __HAL_TIM_GET_COUNTER(&htim3);
 	DistG = __HAL_TIM_GET_COUNTER(&htim4);
+	if(first == 0){
+		DistD = 0;
+		DistG = 0;
+		first++;
+	}
 	VitD = abs(DistD - DistD_old);
 	VitG = abs(DistG - DistG_old);
 	DistD_old = DistD;
 	DistG_old = DistG;
 	if (DirD == DirG) {
 		Dist_parcours = Dist_parcours + ((VitD + VitG) >> 1);
+		int cx = snprintf(BLUE_TX, 100, "Dist %lu\n", Dist_parcours);
+		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 	}
 }
 
@@ -1006,7 +1015,7 @@ void regulateur(void) {
 
 	switch (Etat) {
 	case ARRET: {
-		if (Mode == ACTIF)
+		if (Mode == ACTIF || Mode == PARKMODE)
 			Etat = ACTIFE;
 		else {
 			__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, 0);
@@ -1076,7 +1085,7 @@ void regulateur(void) {
 
 void park(void) {
 	enum ETAT {
-			ARRET, AVANCE_X, SERVO_X0, MESURE_X0, VAL_X0, SERVO_Y0, MESURE_Y0, VAL_Y0, SERVO_Z0, MESURE_Z0, VAL_Z0, SEND_ZIGBEE
+			ARRET, SERVO_X0, MESURE_X0, VAL_X0, SERVO_Y0, MESURE_Y0, VAL_Y0, SERVO_Z0, MESURE_Z0, VAL_Z0, SEND_ZIGBEE
 		};
 	static enum ETAT Etat = ARRET;
 
@@ -1084,41 +1093,35 @@ void park(void) {
 	switch(Etat) {
 		case ARRET : {
 			if(Mode == PARKMODE) { // Si on est dans le parkmode on continue
-				Etat = AVANCE_X;
+				Etat = SERVO_X0;
 				HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
 				__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0); // Set to X0
 				distance_sonar = 0;
 				Dist_parcours = 0;
+				Tmod = 100;
 			}/*else{
 				// AECRIRE
 			}*/
 
-
 			break;
 		}
-		case AVANCE_X : {
-			_DirG = AVANCE;
-			_DirD = AVANCE;
-			_CVitG = V1;
-			_CVitD = V1;
-			if(Dist_parcours >= 1000) { //1 mètre
-				_CVitG = _CVitD = 0;
-			}
 
-			Etat = SERVO_X0 ;
-			break;
-		}
 		case SERVO_X0 : {
 			HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
 			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 7100); // Set to X0
 			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 
 			Etat = MESURE_X0;
+			Tmod = 100;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : MESURE_X0\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case MESURE_X0 : {
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 			Etat = VAL_X0;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : VAL_X0\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case VAL_X0 : {
@@ -1126,6 +1129,9 @@ void park(void) {
 			position_0[0] = distance_sonar;
 			distance_sonar = 0;
 			Etat = SERVO_Y0;
+			Tmod = 500;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : SERVO_Y0\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX,cx, HAL_MAX_DELAY);
 			break;
 		}
 		case SERVO_Y0 : {
@@ -1134,12 +1140,17 @@ void park(void) {
 			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 
 			Etat = MESURE_Y0;
+			Tmod = 100;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : MESURE_Y0\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX,cx, HAL_MAX_DELAY);
 			break;
 
 		}
 		case MESURE_Y0 : {
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 			Etat = VAL_Y0;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : VAL_Y0\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX,cx, HAL_MAX_DELAY);
 			break;
 		}
 		case VAL_Y0 : {
@@ -1147,6 +1158,9 @@ void park(void) {
 			position_0[1] = distance_sonar;
 			distance_sonar = 0;
 			Etat = SERVO_Z0;
+			Tmod = 500;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : SERVO_Z0\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case SERVO_Z0 : {
@@ -1155,12 +1169,17 @@ void park(void) {
 			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 
 			Etat = MESURE_Z0;
+			Tmod = 100;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : MESURE_Z0\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 			break;
 
 		}
 		case MESURE_Z0 : {
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 			Etat = VAL_Z0;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : VAL_Z0\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case VAL_Z0 : {
@@ -1168,6 +1187,8 @@ void park(void) {
 			position_0[2] = distance_sonar;
 			distance_sonar = 0;
 			Etat = SEND_ZIGBEE;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : SEND_ZIGBEE\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case SEND_ZIGBEE : {
@@ -1176,6 +1197,10 @@ void park(void) {
 			}else{
 
 			}
+			Etat = ARRET;
+			Mode = STOP;
+			int cx = snprintf(BLUE_TX, 100, "Etat suivant : FINI\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 		}
 	}
 }
@@ -1198,7 +1223,7 @@ void park(void) {
 }*/
 
 void addon(void) {// Addon = controleur + ts
-	if (Tpark >= T_200_MS) { // Periode 200ms d'actualisation
+	if (Tpark >= Tmod) { // Periode 200ms d'actualisation
 		Tpark= 0;
 		park();
 	}
@@ -1215,9 +1240,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			break;
 		}
 
-		case 'B': {
-			CMDE = ARRIERE;
-			//New_CMDE = 1;
+		case 'V': {
+			CMDE = STOP;
+			New_CMDE = 1;
 			break;
 		}
 
@@ -1366,7 +1391,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 
 
 		int cx = snprintf(BLUE_TX, 100, "Distance Sonar : %d\n", (int)distance_sonar);
-		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, sizeof(BLUE_TX)-cx, HAL_MAX_DELAY);
+		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 	}
 
 }
@@ -1375,10 +1400,16 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 	static unsigned char TOGGLE = 0;
 
-	if (TOGGLE)
+	if (TOGGLE) {
 		CMDE = STOP;
-	else
+		int cx = snprintf(BLUE_TX, 100, "Robot STOP\n");
+		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
+	}else {
 		CMDE = START;
+		int cx = snprintf(BLUE_TX, 100, "Robot START\n");
+		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
+	}
+
 	TOGGLE = ~TOGGLE;
 	New_CMDE = 1;
 
