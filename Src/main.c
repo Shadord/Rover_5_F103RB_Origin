@@ -94,12 +94,13 @@ volatile unsigned char New_CMDE = 0; // Si ya une nouvelle commande
 volatile uint16_t Dist_ACS_1, Dist_ACS_2, Dist_ACS_3, Dist_ACS_4, VBat; // Valeurs ADC
 volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
+volatile unsigned int Tpark = 0;
 volatile unsigned int T_sonar = 0; // Temps permettant de faire une mesure tous les X ms
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
 uint8_t BLUE_RX; // Buffer des commandes bluetooth recues
 uint8_t ZIGBEE_RX; // ZIGBEE RECUES
-volatile unsigned char BLUE_TX[100];
+char BLUE_TX[100];
 
 uint16_t _DirG, _DirD, DirD, DirG; // Futures directions des chenilles D et G et les actuelles
 uint16_t _CVitD, CVitD = 0; // Future vitesse D et actuelle
@@ -116,6 +117,8 @@ uint32_t Dist_Obst_cm;
 uint32_t Dist;
 uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
+uint32_t position_0 [3];
+uint16_t zigbee_state;
 volatile uint32_t distance_sonar = 0;
 /* USER CODE END PV */
 
@@ -132,6 +135,8 @@ void Calcul_Vit(void);
 void ACS(void);
 void HAL_GPIO_ACQ_SONAR(void);
 void HAL_MOV_SERVO(void);
+void park (void);
+void addon(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -211,10 +216,9 @@ int main(void)
 
   while (1)
   {
-	  HAL_GPIO_ACQ_SONAR();
 	  Gestion_Commandes();
 	  controle();
-		addon();
+	  addon();
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
@@ -847,24 +851,15 @@ if (New_CMDE) {
 
 		}
 		case PARK: {
-			switch (Etat) {
-				case VEILLE: {
-					Etat = VEILLE;
-					Mode = SLEEP;
-					break;
-				}
-				case ARRET: {
-					_DirG = RECULE;
-					_DirD = AVANCE;
-					_CVitG = V1;
-					_CVitD = V1;
-					Etat = GV1;
-					Mode = ACTIF;
-					break;
-				}
-			}
+			Etat = ARRET;
+			Mode = PARKMODE;
 			break;
 
+		}
+		case MOVPARK : {
+			Etat = ARRET;
+			Mode = GOPARK;
+			break;
 		}
 	}
 }
@@ -1081,7 +1076,7 @@ void regulateur(void) {
 
 void park(void) {
 	enum ETAT {
-			ARRET, SERVO_X0, MESURE_X0, VAL_X0, SERVO_Y0, MESURE_Y0, VAL_Y0, SERVO_Z0, MESURE_Z0, VAL_Z0, SEND_ZIGBEE
+			ARRET, AVANCE_X, SERVO_X0, MESURE_X0, VAL_X0, SERVO_Y0, MESURE_Y0, VAL_Y0, SERVO_Z0, MESURE_Z0, VAL_Z0, SEND_ZIGBEE
 		};
 	static enum ETAT Etat = ARRET;
 
@@ -1089,94 +1084,103 @@ void park(void) {
 	switch(Etat) {
 		case ARRET : {
 			if(Mode == PARKMODE) { // Si on est dans le parkmode on continue
-				Etat = SERVO_X0;
+				Etat = AVANCE_X;
 				HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
 				__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0); // Set to X0
 				distance_sonar = 0;
-			}else{
+				Dist_parcours = 0;
+			}/*else{
 				// AECRIRE
-			}
+			}*/
 
 
 			break;
 		}
-		case ACTIFE : {
-			switch (Etat) {
-				case SERVO_X0 : {
-					HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
-			  	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 7100); // Set to X0
-					HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
+		case AVANCE_X : {
+			_DirG = AVANCE;
+			_DirD = AVANCE;
+			_CVitG = V1;
+			_CVitD = V1;
+			if(Dist_parcours >= 1000) { //1 mètre
+				_CVitG = _CVitD = 0;
+			}
 
-					Etat = MESURE_X0;
-					break;
-				}
-				case MESURE_X0 : {
-					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-					Etat = VAL_X0;
-					break;
-				}
-				case VAL_X0 : {
-					while(distance_sonar == 0);
-					position_0[0] = distance_sonar;
-					distance_sonar = 0;
-					Etat = SERVO_Y0;
-					break;
-				}
-				case SERVO_Y0 : {
-					HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
-			  	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2300); // Set to Y0
-					HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
+			Etat = SERVO_X0 ;
+			break;
+		}
+		case SERVO_X0 : {
+			HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 7100); // Set to X0
+			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 
-					Etat = MESURE_Y0;
-					break;
+			Etat = MESURE_X0;
+			break;
+		}
+		case MESURE_X0 : {
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+			Etat = VAL_X0;
+			break;
+		}
+		case VAL_X0 : {
+			while(distance_sonar == 0);
+			position_0[0] = distance_sonar;
+			distance_sonar = 0;
+			Etat = SERVO_Y0;
+			break;
+		}
+		case SERVO_Y0 : {
+			HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2300); // Set to Y0
+			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 
-				}
-				case MESURE_Y0 : {
-					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-					Etat = VAL_Y0;
-					break;
-				}
-				case VAL_Y0 : {
-					while(distance_sonar == 0);
-					position_0[1] = distance_sonar;
-					distance_sonar = 0;
-					Etat = SERVO_Z0;
-					break;
-				}
-				case SERVO_Z0 : {
-					HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
-			  	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 800); // Set to Z0
-					HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
+			Etat = MESURE_Y0;
+			break;
 
-					Etat = MESURE_Z0;
-					break;
+		}
+		case MESURE_Y0 : {
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+			Etat = VAL_Y0;
+			break;
+		}
+		case VAL_Y0 : {
+			while(distance_sonar == 0);
+			position_0[1] = distance_sonar;
+			distance_sonar = 0;
+			Etat = SERVO_Z0;
+			break;
+		}
+		case SERVO_Z0 : {
+			HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 800); // Set to Z0
+			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 
-				}
-				case MESURE_Z0 : {
-					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-					Etat = VAL_Z0;
-					break;
-				}
-				case VAL_Z0 : {
-					while(distance_sonar == 0);
-					position_0[2] = distance_sonar;
-					distance_sonar = 0;
-					Etat = SEND_ZIGBEE;
-					break;
-				}
-				case SEND_ZIGBEE : {
-					if(zigbee_state == 1){
+			Etat = MESURE_Z0;
+			break;
 
-					}else{
+		}
+		case MESURE_Z0 : {
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+			Etat = VAL_Z0;
+			break;
+		}
+		case VAL_Z0 : {
+			while(distance_sonar == 0);
+			position_0[2] = distance_sonar;
+			distance_sonar = 0;
+			Etat = SEND_ZIGBEE;
+			break;
+		}
+		case SEND_ZIGBEE : {
+			if(zigbee_state == 1){
 
-					}
-				}
+			}else{
+
 			}
 		}
 	}
 }
 
-void attentePark(void) {
+/*void attentePark(void) {
 	enum ETAT {
 			ARRET, AVANCE_1, ROTATION_ANTIHORAIRE, SERVO_CENTRE, MESURE_1, VAL_1, RECULE_1, ROTATION_HORAIRE, MESURE_2, VAL_2, AVANCE_FINAL
 		};
@@ -1191,11 +1195,11 @@ void attentePark(void) {
 		}
 	}
 
-}
+}*/
 
 void addon(void) {// Addon = controleur + ts
-	if (Tech >= T_200_MS) { // Periode 200ms d'actualisation
-		Tech = 0;
+	if (Tpark >= T_200_MS) { // Periode 200ms d'actualisation
+		Tpark= 0;
 		park();
 	}
 }
@@ -1259,7 +1263,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
 
 
-	}else if (huart->Instance == USART1) {
+	}/*else if (huart->Instance == USART1) {
 
 		switch (ZIGBEE_RX) {
 		case 'F': {
@@ -1290,12 +1294,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			// disconnect bluetooth
 			break;
 		}
-		default:
+		//default:
 		}
-		HAL_UART_Receive_IT(&huart1, &ZIGBEE_RX, 1);
+		//HAL_UART_Receive_IT(&huart1, &ZIGBEE_RX, 1);
 
 
-	}
+	}*/
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
@@ -1316,6 +1320,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 		Time++;
 		T_sonar++;
 		Tech++;
+		Tpark++;
 
 		switch (cpt) {
 		case 1: {
@@ -1360,8 +1365,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 		 */
 
 
-		snprintf(BLUE_TX, 100, "Distance Sonar : %d\n", distance_sonar);
-		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, sizeof(BLUE_TX), HAL_MAX_DELAY);
+		int cx = snprintf(BLUE_TX, 100, "Distance Sonar : %d\n", (int)distance_sonar);
+		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, sizeof(BLUE_TX)-cx, HAL_MAX_DELAY);
 	}
 
 }
@@ -1428,6 +1433,7 @@ void assert_failed(uint8_t* file, uint32_t line)
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
+
 #endif /* USE_FULL_ASSERT */
 
 /**
