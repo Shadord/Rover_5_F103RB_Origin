@@ -75,9 +75,9 @@
 #define CKd_G 0
 #define DELTA 0x50
 
-#define SERVO_DROITE 800
-#define SERVO_CENTRE 2300
-#define SERVO_GAUCHE 7100
+#define SERVO_DROITE	800
+#define SERVO_CENTRE	2300
+#define SERVO_GAUCHE	7100
 
 enum CMDE {
 	START,
@@ -98,8 +98,11 @@ volatile unsigned char New_CMDE = 0; // Si ya une nouvelle commande
 volatile uint16_t Dist_ACS_1, Dist_ACS_2, Dist_ACS_3, Dist_ACS_4, VBat; // Valeurs ADC
 volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
+
 volatile unsigned int Taddon = 0;
 volatile unsigned int Tservo = 0;
+
+volatile unsigned int TRotation = 0;
 volatile unsigned int T_sonar = 0; // Temps permettant de faire une mesure tous les X ms
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
@@ -1246,6 +1249,44 @@ void park(void) {
 }
 
 
+void attentePark(void) {
+	enum ETAT {
+			ARRET, AVANCE_1, ROTATION_ANTIHORAIRE, SERVO_CENTRE, MESURE_1, VAL_1, RECULE_1, ROTATION_HORAIRE, MESURE_2, VAL_2, AVANCE_FINAL
+		};
+	static enum ETAT Etat = ARRET;
+
+	switch(Etat) {
+		case ARRET : {
+			if(Mode == GOPARK) {
+				Etat = AVANCE_1;
+			}
+		case AVANCE_1 : {
+			_DirD = AVANCE;
+			_DirG = AVANCE;
+			_CVitD = V1;
+			_CVitG = V1;
+			if(Dist_parcours >= 527) {
+				_CVitD = _CVitG = 0;
+				TRotation = 0;
+				Etat = ROTATION_ANTIHORAIRE;
+			}
+		case ROTATION_ANTIHORAIRE : {
+			_DirD = AVANCE;
+			_DirG = RECULE;
+			_CVitD = _CVitG = V1;
+			if(respectTime(TRotation, T_2_S)) {
+				_CVitD = _CVitG = 0;
+				Etat = SERVO_CENTRE;
+			}
+		}
+
+
+		}
+		}
+	}
+
+}
+
 void addon(void) {// Addon = controleur + ts
 	if (respectTime(Taddon, T_200_MS)) { // Periode 200ms d'actualisation
 		park();
@@ -1392,6 +1433,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 		Tech++;
 		Taddon++;
 		Tservo++;
+		TRotation ++;
 
 		switch (cpt) {
 		case 1: {
