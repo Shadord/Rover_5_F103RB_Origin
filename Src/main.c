@@ -96,6 +96,7 @@ volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
 volatile unsigned int Tpark = 0;
 volatile unsigned int Tmod = 100;
+volatile unsigned int Trotation = 0;
 volatile unsigned int T_sonar = 0; // Temps permettant de faire une mesure tous les X ms
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
@@ -1205,7 +1206,7 @@ void park(void) {
 	}
 }
 
-/*void attentePark(void) {
+void attentePark(void) {
 	enum ETAT {
 			ARRET, AVANCE_1, ROTATION_ANTIHORAIRE, SERVO_CENTRE, MESURE_1, VAL_1, RECULE_1, ROTATION_HORAIRE, MESURE_2, VAL_2, AVANCE_FINAL
 		};
@@ -1216,11 +1217,32 @@ void park(void) {
 			if(Mode == GOPARK) {
 				Etat = AVANCE_1;
 			}
-			// AECRIRE
+		case AVANCE_1 : {
+			_DirD = AVANCE;
+			_DirG = AVANCE;
+			_CVitD = V1;
+			_CVitG = V1;
+			if(Dist_parcours >= 527) {
+				_CVitD = _CVitG = 0;
+				TRotation = 0;
+				Etat = ROTATION_ANTIHORAIRE;
+			}
+		case ROTATION_ANTIHORAIRE : {
+			_DirD = AVANCE;
+			_DirG = RECULE;
+			_CVitD = _CVitG = V1;
+			if(respectTime(TRotation, T_2_S)) {
+				_CVitD = _CVitG = 0;
+				Etat = SERVO_CENTRE;
+			}
+		}
+
+
+		}
 		}
 	}
 
-}*/
+}
 
 void addon(void) {// Addon = controleur + ts
 	if (Tpark >= Tmod) { // Periode 200ms d'actualisation
@@ -1346,6 +1368,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 		T_sonar++;
 		Tech++;
 		Tpark++;
+		TRotation ++;
 
 		switch (cpt) {
 		case 1: {
