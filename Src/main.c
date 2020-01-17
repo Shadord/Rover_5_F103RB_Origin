@@ -120,6 +120,8 @@ uint32_t Dist;
 uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
 uint32_t position_0 [3];
+
+
 uint16_t zigbee_state;
 volatile uint32_t distance_sonar = 0;
 /* USER CODE END PV */
@@ -1206,18 +1208,19 @@ void park(void) {
 	}
 }
 
-void attentePark(void) {
+void attentePark(position_test) {
 	enum ETAT {
-			ARRET, AVANCE_1, ROTATION_ANTIHORAIRE, SERVO_CENTRE, MESURE_1, VAL_1, RECULE_1, ROTATION_HORAIRE, MESURE_2, VAL_2, AVANCE_FINAL
+			ARRET, AVANCE_X, ROTATION_ANTIHORAIRE, SERVO_Z, MESURE_Z, VAL_Z, RECULE_Z, ROTATION_HORAIRE, MESURE_X, VAL_X, AVANCE_FINAL_X
 		};
 	static enum ETAT Etat = ARRET;
 
 	switch(Etat) {
 		case ARRET : {
 			if(Mode == GOPARK) {
-				Etat = AVANCE_1;
+				Dist_parcours = 0;
+				Etat = AVANCE_X;
 			}
-		case AVANCE_1 : {
+		case AVANCE_X : {
 			_DirD = AVANCE;
 			_DirG = AVANCE;
 			_CVitD = V1;
@@ -1233,11 +1236,64 @@ void attentePark(void) {
 			_CVitD = _CVitG = V1;
 			if(respectTime(TRotation, T_2_S)) {
 				_CVitD = _CVitG = 0;
-				Etat = SERVO_CENTRE;
+				Etat = SERVO_Z;
 			}
 		}
-
-
+		case SERVO_Z : {
+			HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2300); // Set to Y0
+			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
+			Etat = MESURE_Z;
+		}
+		case MESURE_Z : {
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+			Etat = VAL_Z;
+		}
+		case VAL_Z : {
+			while(distance_sonar == 0);
+			position[2] = distance_sonar; //position = [x, y, z]
+			distance_sonar = 0;
+			Dist_parcours = 0;
+			Etat = RECULE_Z;
+		}
+		case RECULE_Z : {
+			_DirD = _DirG = RECULE;
+			_CVitD = _CVitG = V1;
+			if(Dist_parcours >= (position_test[2] - position[2] + 25)*17,58) { //conversion : 334 tops = 1 tour de roue = 19cm
+				_CVitD = _CVitG = 0;
+				TRotation = 0;
+				Etat = ROTATION_HORAIRE;
+			}
+		}
+		case ROTATION_HORAIRE : {
+			_DirD = RECULE ;
+			_DirG = AVANCE ;
+			_CVitD = _CVitG = V1;
+			if(respectTime(TRotation, T_2_S)) {
+				_CVitD = _CVitG = 0;
+				Etat = MESURE_X;
+			}
+		}
+		case MESURE_X : {
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+			Etat = VAL_X;
+		}
+		case VAL_X : {
+			while(distance_sonar == 0);
+			position[0] = distance_sonar; //position = [x, y, z]
+			distance_sonar = 0;
+			Dist_parcours = 0;
+			Etat = AVANCE_FINAL_X;
+		}
+		case AVANCE_FINAL_X : {
+			_DirD = _DirG = AVANCE;
+			_CVitD = _CVitG = V1;
+			if(Dist_parcours >= (position[0] - position_test[0])*17,58) {
+				_CVitD = _CVitD = 0;
+				Etat = ARRET;
+				Mode = STOP;
+			}
+		}
 		}
 		}
 	}
