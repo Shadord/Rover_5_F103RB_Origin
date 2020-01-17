@@ -5,7 +5,7 @@
   ******************************************************************************
   ** This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether
+  * USER CODE END. Other portions of this file, whether 
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
@@ -75,6 +75,10 @@
 #define CKd_G 0
 #define DELTA 0x50
 
+#define SERVO_DROITE 800
+#define SERVO_CENTRE 2300
+#define SERVO_GAUCHE 7100
+
 enum CMDE {
 	START,
 	STOP,
@@ -94,8 +98,8 @@ volatile unsigned char New_CMDE = 0; // Si ya une nouvelle commande
 volatile uint16_t Dist_ACS_1, Dist_ACS_2, Dist_ACS_3, Dist_ACS_4, VBat; // Valeurs ADC
 volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
-volatile unsigned int Tpark = 0;
-volatile unsigned int Tmod = 100;
+volatile unsigned int Taddon = 0;
+volatile unsigned int Tservo = 0;
 volatile unsigned int T_sonar = 0; // Temps permettant de faire une mesure tous les X ms
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
@@ -112,13 +116,16 @@ uint16_t DistG_old = 0;// Ancienne distance parcourue par G
 int Cmde_VitD = 0;
 int Cmde_VitG = 0;
 unsigned long Dist_parcours = 0;
+unsigned long _Dist_parcours = 0;
 volatile uint32_t Dist_Obst;
 uint32_t Dist_Obst_;
 uint32_t Dist_Obst_cm;
 uint32_t Dist;
 uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
-uint32_t position_0 [3];
+uint32_t position_0[3];
+uint32_t position_test[] = {0, 0, 0};
+
 uint16_t zigbee_state;
 volatile uint32_t distance_sonar = 0;
 /* USER CODE END PV */
@@ -138,6 +145,7 @@ void HAL_GPIO_ACQ_SONAR(void);
 void HAL_MOV_SERVO(void);
 void park (void);
 void addon(void);
+int respectTime(int chrono, int timeToWait);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -240,7 +248,7 @@ void SystemClock_Config(void)
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
   RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-    /**Initializes the CPU, AHB and APB busses clocks
+    /**Initializes the CPU, AHB and APB busses clocks 
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
@@ -253,7 +261,7 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks
+    /**Initializes the CPU, AHB and APB busses clocks 
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
@@ -274,11 +282,11 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure the Systick interrupt time
+    /**Configure the Systick interrupt time 
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick
+    /**Configure the Systick 
     */
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
@@ -322,17 +330,19 @@ void Gestion_Commandes(void) {
 
 if (New_CMDE) {
 		New_CMDE = 0;
+		_Dist_parcours = Dist_parcours;
+		Dist_parcours = 0;
 	switch (CMDE) {
 		case STOP: {
 			_CVitD = _CVitG = 0;
-			// Mise en sommeil: STOP mode , r�veil via IT BP1
+			// Mise en sommeil: STOP mode , reiveil via IT BP1
 			Etat = VEILLE;
 			Mode = SLEEP;
 
 			break;
 		}
 		case START: {
-			// r�veil syt�me grace � l'IT BP1
+			// rziveil syteme grace a l'IT BP1
 			Etat = ARRET;
 			Mode = SLEEP;
 
@@ -981,13 +991,22 @@ void Calcul_Vit(void) {
 		DistG = 0;
 		first++;
 	}
+	if (DirD == DirG) {
+			if(DirG == AVANCE && DistG > 30000){
+				DistG = 65535 - DistG;
+			}
+			if(DirD == RECULE && DistD > 30000) {
+				DistD = 65535 - DistD;
+			}
+
+	}
 	VitD = abs(DistD - DistD_old);
 	VitG = abs(DistG - DistG_old);
 	DistD_old = DistD;
 	DistG_old = DistG;
 	if (DirD == DirG) {
 		Dist_parcours = Dist_parcours + ((VitD + VitG) >> 1);
-		int cx = snprintf(BLUE_TX, 100, "Dist %lu\n", Dist_parcours);
+		int cx = snprintf(BLUE_TX, 100, "DistD = %d -- DistG = %d\n", (int)DistD, (int)DistG);
 		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 	}
 }
@@ -1098,7 +1117,8 @@ void park(void) {
 				__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0); // Set to X0
 				distance_sonar = 0;
 				Dist_parcours = 0;
-				Tmod = 100;
+				Tservo = 0;
+
 			}/*else{
 				// AECRIRE
 			}*/
@@ -1108,17 +1128,21 @@ void park(void) {
 
 		case SERVO_X0 : {
 			HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
-			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 7100); // Set to X0
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, SERVO_GAUCHE); // Set to X0
 			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 
-			Etat = MESURE_X0;
-			Tmod = 100;
+
+			if (respectTime(Tservo, T_2_S)) {
+				Etat = MESURE_X0;
+			}
 			int cx = snprintf(BLUE_TX, 100, "Etat suivant : MESURE_X0\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case MESURE_X0 : {
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+
+
 			Etat = VAL_X0;
 			int cx = snprintf(BLUE_TX, 100, "Etat suivant : VAL_X0\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
@@ -1128,19 +1152,24 @@ void park(void) {
 			while(distance_sonar == 0);
 			position_0[0] = distance_sonar;
 			distance_sonar = 0;
+
+			Tservo = 0;
+
+
 			Etat = SERVO_Y0;
-			Tmod = 500;
 			int cx = snprintf(BLUE_TX, 100, "Etat suivant : SERVO_Y0\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX,cx, HAL_MAX_DELAY);
 			break;
 		}
 		case SERVO_Y0 : {
 			HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
-			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2300); // Set to Y0
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, SERVO_CENTRE); // Set to Y0
 			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 
-			Etat = MESURE_Y0;
-			Tmod = 100;
+
+			if (respectTime(Tservo, T_2_S)) {
+				Etat = MESURE_Y0;
+			}
 			int cx = snprintf(BLUE_TX, 100, "Etat suivant : MESURE_Y0\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX,cx, HAL_MAX_DELAY);
 			break;
@@ -1148,6 +1177,8 @@ void park(void) {
 		}
 		case MESURE_Y0 : {
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+
+
 			Etat = VAL_Y0;
 			int cx = snprintf(BLUE_TX, 100, "Etat suivant : VAL_Y0\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX,cx, HAL_MAX_DELAY);
@@ -1157,19 +1188,24 @@ void park(void) {
 			while(distance_sonar == 0);
 			position_0[1] = distance_sonar;
 			distance_sonar = 0;
+
+			Tservo = 0;
+
+
 			Etat = SERVO_Z0;
-			Tmod = 500;
 			int cx = snprintf(BLUE_TX, 100, "Etat suivant : SERVO_Z0\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case SERVO_Z0 : {
 			HAL_TIM_PWM_Stop(&htim1,TIM_CHANNEL_4); // Arrete pour eviter les bugs
-			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 800); // Set to Z0
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, SERVO_DROITE); // Set to Z0
 			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 
-			Etat = MESURE_Z0;
-			Tmod = 100;
+
+			if (respectTime(Tservo, T_2_S)) {
+				Etat = MESURE_Z0;
+			}
 			int cx = snprintf(BLUE_TX, 100, "Etat suivant : MESURE_Z0\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 			break;
@@ -1177,6 +1213,8 @@ void park(void) {
 		}
 		case MESURE_Z0 : {
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+
+
 			Etat = VAL_Z0;
 			int cx = snprintf(BLUE_TX, 100, "Etat suivant : VAL_Z0\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
@@ -1186,6 +1224,8 @@ void park(void) {
 			while(distance_sonar == 0);
 			position_0[2] = distance_sonar;
 			distance_sonar = 0;
+
+
 			Etat = SEND_ZIGBEE;
 			int cx = snprintf(BLUE_TX, 100, "Etat suivant : SEND_ZIGBEE\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
@@ -1205,29 +1245,29 @@ void park(void) {
 	}
 }
 
-/*void attentePark(void) {
-	enum ETAT {
-			ARRET, AVANCE_1, ROTATION_ANTIHORAIRE, SERVO_CENTRE, MESURE_1, VAL_1, RECULE_1, ROTATION_HORAIRE, MESURE_2, VAL_2, AVANCE_FINAL
-		};
-	static enum ETAT Etat = ARRET;
-
-	switch(Etat) {
-		case ARRET : {
-			if(Mode == GOPARK) {
-				Etat = AVANCE_1;
-			}
-			// AECRIRE
-		}
-	}
-
-}*/
 
 void addon(void) {// Addon = controleur + ts
-	if (Tpark >= Tmod) { // Periode 200ms d'actualisation
-		Tpark= 0;
+	if (respectTime(Taddon, T_200_MS)) { // Periode 200ms d'actualisation
 		park();
+		//attentepark();
 	}
 }
+
+int respectTime(int chrono, int timeToWait) {
+	if(chrono >= timeToWait) {
+		chrono = 0;
+		return 1;
+	}else{
+		return 0;
+	}
+}
+
+/*
+ *
+ *
+ *
+ * 29 cm pour 510 top 19cm ==>
+ */
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
@@ -1240,6 +1280,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			break;
 		}
 
+		case 'B': {
+			CMDE = ARRIERE;
+			//New_CMDE = 1;
+			break;
+		}
 		case 'V': {
 			CMDE = STOP;
 			New_CMDE = 1;
@@ -1345,7 +1390,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 		Time++;
 		T_sonar++;
 		Tech++;
-		Tpark++;
+		Taddon++;
+		Tservo++;
 
 		switch (cpt) {
 		case 1: {
@@ -1388,9 +1434,10 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 		 * Sachant donc que 667 correspond a 650 cm alors x cm correspondent a ?
 		 * distance(cm) =  x*650/667
 		 */
+		distance_sonar = distance_sonar / 98;
 
 
-		int cx = snprintf(BLUE_TX, 100, "Distance Sonar : %d\n", (int)distance_sonar);
+		int cx = snprintf(BLUE_TX, 100, "Distance Sonar : %d cm\n", (int)distance_sonar);
 		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_TX, cx, HAL_MAX_DELAY);
 	}
 
@@ -1458,13 +1505,12 @@ void _Error_Handler(char *file, int line)
   * @retval None
   */
 void assert_failed(uint8_t* file, uint32_t line)
-{
+{ 
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
-
 #endif /* USE_FULL_ASSERT */
 
 /**
