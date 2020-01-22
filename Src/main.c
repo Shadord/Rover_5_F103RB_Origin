@@ -1272,6 +1272,7 @@ void attentePark(void)
 				int cx = snprintf(BLUE_ETAT_TX, 100, "AVANCE X\n");
 				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 				HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
+				getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 				Etat = AVANCE_X;
 			}
 			break;
@@ -1281,11 +1282,10 @@ void attentePark(void)
 			_DirG = AVANCE;
 			_CVitD = V1;
 			_CVitG = V1;
-			if(Dist_parcours >= 527) {
-				_DirD = AVANCE;
-				_DirG = RECULE;
-				_CVitD = V1;
-				_CVitG = V1;
+			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
+			if(getTicks >= 527) {
+				_CVitD = 0;
+				_CVitG = 0;
 				TRotation = 0;
 				int cx = snprintf(BLUE_ETAT_TX, 100, "ROTATION ANTI-HORAIRE\n");
 				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
@@ -1295,7 +1295,10 @@ void attentePark(void)
 			break;
 		}
 		case ROTATION_ANTIHORAIRE : {
-
+			_DirD = AVANCE;
+			_DirG = RECULE;
+			_CVitD = V1;
+			_CVitG = V1;
 			getTicks = __HAL_TIM_GET_COUNTER(&htim4);
 
 			if(abs( getTicks - getTicksBack ) >= 300) {
