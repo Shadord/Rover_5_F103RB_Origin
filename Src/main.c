@@ -1292,7 +1292,8 @@ void attentePark(void) {
 			_CVitD = V1;
 			_CVitG = V1;
 			Tservo = 0;
-			if(TRotation >= T_2_S/3){
+			if(TRotation >= T_200_MS/20){
+				//TRotation = 0;
 				_CVitD = 0;
 				_CVitG = 0;
 				if(TRotation >= 2*T_2_S){
