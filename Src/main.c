@@ -5,7 +5,7 @@
   ******************************************************************************
   ** This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
+  * USER CODE END. Other portions of this file, whether
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
@@ -107,7 +107,7 @@ volatile unsigned int T_sonar = 0; // Temps permettant de faire une mesure tous 
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
 uint8_t BLUE_RX; // Buffer des commandes bluetooth recues
-uint8_t ZIGBEE_RX; // ZIGBEE RECUES
+uint8_t XBEE_RX[]; // ZIGBEE RECUES
 char BLUE_ETAT_TX[100];
 char BLUE_SONAR_TX[100];
 char BLUE_DIST_TX[100];
@@ -224,6 +224,7 @@ int main(void)
 	__HAL_TIM_SET_COUNTER(&htim3, 30000);
 
 	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
+	HAL_UART_Receive_IT(&huart1, &XBEE_RX, 3);
 	HAL_ADC_Start_IT(&hadc1);
 
 	HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1); // start interrupt TIM1 sur channel 1
@@ -270,7 +271,7 @@ void SystemClock_Config(void)
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
   RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
@@ -283,7 +284,7 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
@@ -304,11 +305,11 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure the Systick interrupt time 
+    /**Configure the Systick interrupt time
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick 
+    /**Configure the Systick
     */
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
@@ -1273,7 +1274,7 @@ void attentePark(void)
 		case DIALOGUE_ROBOT_MAITRE : {
 
 
-			
+
 			getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 			Etat = AVANCE_X;
 			break;
@@ -1433,7 +1434,8 @@ void stop(void) {
  * 29 cm pour 510 top 19cm ==>
  */
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
 
 	if (huart->Instance == USART3) {
 
@@ -1497,46 +1499,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
 
 
-	}/*else if (huart->Instance == USART1) {
+	}else if (huart->Instance == USART1) {
+		if()
 
-		switch (ZIGBEE_RX) {
-		case 'F': {
-			CMDE = AVANT;
-			//New_CMDE = 1;
-			break;
+		switch (XBEE_RX) {
+
+
+
 		}
-
-		case 'B': {
-			CMDE = ARRIERE;
-			//New_CMDE = 1;
-			break;
-		}
-
-		case 'L': {
-			CMDE = GAUCHE;
-			//New_CMDE = 1;
-			break;
-		}
-
-		case 'R': {
-			CMDE = DROITE;
-			//New_CMDE = 1;
-			break;
-		}
-
-		case 'D':{
-			// disconnect bluetooth
-			break;
-		}
-		//default:
-		}
-		//HAL_UART_Receive_IT(&huart1, &ZIGBEE_RX, 1);
+		HAL_UART_Receive_IT(&huart1, &XBEE_RX, 3);
 
 
-	}*/
+	}
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
 
 	Dist_ACS_3 = adc_buffer[0] - adc_buffer[5];
 	Dist_ACS_4 = adc_buffer[3] - adc_buffer[8];
@@ -1546,7 +1524,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 	HAL_ADC_Stop_DMA(hadc);
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim)
+{
 	static unsigned char cpt = 0;
 
 	if ( htim->Instance == TIM2) {
@@ -1587,7 +1566,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 	}
 }
 
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
 
 	if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) { // On est dans le falling-edge
@@ -1605,7 +1585,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
 
 	static unsigned char TOGGLE = 0;
 
@@ -1624,10 +1605,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 }
 
-void HAL_GPIO_ACQ_SONAR(void) {
+void HAL_GPIO_ACQ_SONAR(void)
+{
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 }
-void HAL_MOV_SERVO(void) {
+void HAL_MOV_SERVO(void)
+{
 	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 7100);
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
 	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2300);
@@ -1636,7 +1619,8 @@ void HAL_MOV_SERVO(void) {
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
 }
 
-void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef * hadc) {
+void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef * hadc)
+{
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
 
 }
@@ -1667,7 +1651,7 @@ void _Error_Handler(char *file, int line)
   * @retval None
   */
 void assert_failed(uint8_t* file, uint32_t line)
-{ 
+{
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
