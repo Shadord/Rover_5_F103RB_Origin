@@ -1015,6 +1015,8 @@ void Calcul_Vit(void)
 
 	DistD = __HAL_TIM_GET_COUNTER(&htim3);
 	DistG = __HAL_TIM_GET_COUNTER(&htim4);
+	int cx = snprintf(BLUE_DIST_TX, 100, "DistG = %d ---- DistD = %d\n", DistG, DistD);
+	HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_DIST_TX, cx, HAL_MAX_DELAY);
 
 	VitD = abs(DistD - DistD_old);
 	VitG = abs(DistG - DistG_old);
@@ -1301,8 +1303,11 @@ void attentePark(void)
 			_CVitG = V1;
 			getTicks = __HAL_TIM_GET_COUNTER(&htim4);
 
-			if(abs( getTicks - getTicksBack ) >= 300) {
-				_CVitD = _CVitG = 0;
+			if(abs( getTicks - getTicksBack ) >= 290) {
+				int cx = snprintf(BLUE_ETAT_TX, 100, "SERVO_Z\n");
+				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+				_CVitD = 0;
+				_CVitG = 0;
 				Tservo = 0;
 				Etat = SERVO_Z;
 			}
@@ -1313,8 +1318,11 @@ void attentePark(void)
 			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, SERVO_CENTRE); // Set to Y0
 
 			if(Tservo >= T_2_S) {
+				int cx = snprintf(BLUE_ETAT_TX, 100, "MESURE_Z\n");
+				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 				Etat = MESURE_Z;
 			}
+			break;
 
 		}
 		case MESURE_Z : {
@@ -1329,19 +1337,23 @@ void attentePark(void)
 			Dist_parcours = 0;
 			int cx = snprintf(BLUE_ETAT_TX, 100, "RECULE\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+			getTicksBack = __HAL_TIM_GET_COUNTER(&htim4);    //mesure de nombres des tics
+			Etat = RECULE_Z;
 			break;
 		}
-		/*case RECULE_Z : {
+		case RECULE_Z : {
 			_DirD = RECULE;
 			_DirG = RECULE;
 			_CVitD = V1;
 			_CVitG = V1;
-			if(Dist_parcours >= (position_test[2] - position[2] + 25)*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
+			getTicks = __HAL_TIM_GET_COUNTER(&htim4);
+			if(abs(getTicks - getTicksBack) >= (abs(position_test[2] - position[2]) + 25)*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
 				_CVitD = 0;
 				_CVitG = 0;
-				TRotation = 0;
+
 				int cx = snprintf(BLUE_ETAT_TX, 100, "ROTATION HORAIRE\n");
 				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+				getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 				Etat = ROTATION_HORAIRE;
 			}
 			break;
@@ -1351,8 +1363,8 @@ void attentePark(void)
 			_DirG = AVANCE ;
 			_CVitD = V1;
 			_CVitG = V1;
-			if(TRotation >= T_2_S){
-				TRotation = 0;
+			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
+			if(abs(getTicks - getTicksBack) >= 300){
 				_CVitD = 0;
 				_CVitG = 0;
 				Etat = MESURE_X;
@@ -1371,6 +1383,7 @@ void attentePark(void)
 			Dist_parcours = 0;
 			int cx = snprintf(BLUE_ETAT_TX, 100, "AVANCE FINAL\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+			getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 			Etat = AVANCE_FINAL_X;
 			break;
 		}
@@ -1379,37 +1392,21 @@ void attentePark(void)
 			_DirG = AVANCE;
 			_CVitD = V1;
 			_CVitG = V1;
-			if(Dist_parcours >= (position[0] - position_test[0])*17.58) {
+			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
+			if(abs(getTicks - getTicksBack) >= abs(position[0] - position_test[0])*17.58) {
 				_CVitD = 0;
 				_CVitD = 0;
 				Etat = ARRET;
 				Mode = SLEEP;
 			}
 			break;
-		}*/
+		}
 
 	}
 
 }
 
-void addon(void)
-{// Addon = controleur + ts
-	if (Taddon >= T_200_MS) { // Periode 200ms d'actualisation
-		Taddon = 0;
-		park();
-		attentePark();
-	}
-}
 
-int respectTime(int chrono, int timeToWait)
-{
-	if(chrono >= timeToWait) {
-		chrono = 0;
-		return 1;
-	}else{
-		return 0;
-	}
-}
 
 /*
  *
