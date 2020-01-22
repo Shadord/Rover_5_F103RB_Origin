@@ -1395,7 +1395,7 @@ void attentePark(void)
 			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
 			if(abs(getTicks - getTicksBack) >= abs(position[0] - position_test[0])*17.58) {
 				_CVitD = 0;
-				_CVitD = 0;
+				_CVitG = 0;
 				Etat = ARRET;
 				Mode = SLEEP;
 			}
