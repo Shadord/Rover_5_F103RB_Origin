@@ -1011,24 +1011,11 @@ void ACS(void)
 
 void Calcul_Vit(void)
 {
-	static int first = 0;
+
 
 	DistD = __HAL_TIM_GET_COUNTER(&htim3);
 	DistG = __HAL_TIM_GET_COUNTER(&htim4);
-	if(first == 0){
-		DistD = 0;
-		DistG = 0;
-		first++;
-	}
-	if (DirD == DirG) {
-			if(DirG == AVANCE && DistG > 30000){
-				DistG = 65535 - DistG;
-			}
-			if(DirD == RECULE && DistD > 30000) {
-				DistD = 65535 - DistD;
-			}
 
-	}
 	VitD = abs(DistD - DistD_old);
 	VitG = abs(DistG - DistG_old);
 	DistD_old = DistD;
