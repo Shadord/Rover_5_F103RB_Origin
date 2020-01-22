@@ -79,6 +79,8 @@
 #define SERVO_CENTRE	2300
 #define SERVO_GAUCHE	7100
 
+#define ADDR_ROBOT 3
+
 enum CMDE {
 	START,
 	STOP,
@@ -107,10 +109,13 @@ volatile unsigned int T_sonar = 0; // Temps permettant de faire une mesure tous 
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
 uint8_t BLUE_RX; // Buffer des commandes bluetooth recues
-uint8_t XBEE_RX[]; // ZIGBEE RECUES
+uint8_t XBEE_RX[7]; // ZIGBEE RECUES
+char XBEE_TX[7]; // ZIGBEE TRANSMISES
 char BLUE_ETAT_TX[100];
 char BLUE_SONAR_TX[100];
 char BLUE_DIST_TX[100];
+int position_received = 0;
+char adresse_cible;
 
 uint16_t _DirG, _DirD, DirD, DirG; // Futures directions des chenilles D et G et les actuelles
 uint16_t _CVitD, CVitD = 0; // Future vitesse D et actuelle
@@ -1240,15 +1245,29 @@ void park(void)
 			break;
 		}
 		case SEND_ZIGBEE : {
-			if(zigbee_state == 1){
+			int cx = snprintf(XBEE_TX, 7, "X3A");
+			HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
 
-			}else{
 
-			}
-			Etat = ARRET;
-			Mode = SLEEP;
+
 			int cx = snprintf(BLUE_ETAT_TX, 100, "FINI PARK\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+			Etat = RECEPTION_ADDR;
+			Mode = SLEEP;
+			break;
+		}
+		case RECEPTION_ADDR : {
+			if (adresse_cible != 0) {
+				int cx = snprintf(XBEE_TX, 7, "X3P%c%c%c%c",adresse_cible,position_test[2], position_test[0], position_test[1]);
+				HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
+
+				int cx = snprintf(BLUE_ETAT_TX, 100, "ADRESSE RECUE : %d\n", adresse_cible);
+				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+				Etat = ARRET;
+				Mode = SLEEP;
+			}
+
+			break;
 		}
 	}
 }
@@ -1500,12 +1519,34 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 
 	}else if (huart->Instance == USART1) {
-		if()
+		if(XBEE_RX[0]=='X' && XBEE_RX[1]=='3') {
+			switch (XBEE_RX[2]) {
+				case 'A' : { //réception demande d'adresse
+					if( Mode == GOPARK) {
+						int cx = snprintf(XBEE_TX, 100, "X3a%d", ADDR_ROBOT);
+						HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
+					}
+					break;
+				}
+				case 'a' : {//réception adresse
+					if(Mode==PARKMODE) {
+						adresse_cible  = XBEE_RX[3];
+					}
+					break;
+				}
+				case 'P' : { //ordre de se garer
+					if(Mode==GOPARK) {
+						if(XBEE_RX[3] == ADDR_ROBOT) {
+							position_test[2] = XBEE_RX[4]; //X
+							position_test[0] = XBEE_RX[5]; //Y
+							position_test[1] = XBEE_RX[6]; //Z
+							position_received = 1;
+						}
+					}
 
-		switch (XBEE_RX) {
-
-
-
+					break;
+				}
+			}
 		}
 		HAL_UART_Receive_IT(&huart1, &XBEE_RX, 3);
 
