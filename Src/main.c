@@ -1309,7 +1309,6 @@ void attentePark(void)
 		}
 		case ROTATION_ANTIHORAIRE : {
 
-
 			getTicks = __HAL_TIM_GET_COUNTER(&htim4);
 
 			if(abs( getTicks - getTicksBack ) >= 300) {
