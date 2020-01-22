@@ -158,6 +158,11 @@ void park (void);
 void addon(void);
 int respectTime(int chrono, int timeToWait);
 void attentePark(void);
+void avance(void);
+void recule(void);
+void droite(void);
+void gauche(void);
+void stop(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -213,6 +218,9 @@ int main(void)
 
 	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
 	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+
+	__HAL_TIM_SET_COUNTER(&htim4, 30000);
+	__HAL_TIM_SET_COUNTER(&htim3, 30000);
 
 	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
 	HAL_ADC_Start_IT(&hadc1);
@@ -1146,8 +1154,6 @@ void park(void)
 
 			if(Tservo >= T_2_S){
 				Tservo = 0;
-				int cx = snprintf(BLUE_ETAT_TX, 100, "MESURE_X0\n");
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 				Etat = MESURE_X0;
 			}
 
@@ -1158,8 +1164,6 @@ void park(void)
 
 
 			Etat = VAL_X0;
-			int cx = snprintf(BLUE_ETAT_TX, 100, "VAL_X0\n");
-			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case VAL_X0 : {
@@ -1171,8 +1175,6 @@ void park(void)
 
 
 			Etat = SERVO_Y0;
-			int cx = snprintf(BLUE_ETAT_TX, 100, " SERVO_Y0\n");
-			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX,cx, HAL_MAX_DELAY);
 			break;
 		}
 		case SERVO_Y0 : {
@@ -1181,8 +1183,6 @@ void park(void)
 
 			if(Tservo >= T_2_S){
 				Tservo = 0;
-				int cx = snprintf(BLUE_ETAT_TX, 100, "MESURE_Y0\n");
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX,cx, HAL_MAX_DELAY);
 				Etat = MESURE_Y0;
 			}
 
@@ -1194,8 +1194,6 @@ void park(void)
 
 
 			Etat = VAL_Y0;
-			int cx = snprintf(BLUE_ETAT_TX, 100, "VAL_Y0\n");
-			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX,cx, HAL_MAX_DELAY);
 			break;
 		}
 		case VAL_Y0 : {
@@ -1207,8 +1205,6 @@ void park(void)
 
 
 			Etat = SERVO_Z0;
-			int cx = snprintf(BLUE_ETAT_TX, 100, "SERVO_Z0\n");
-			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case SERVO_Z0 : {
@@ -1218,8 +1214,6 @@ void park(void)
 			if(Tservo >= T_2_S){
 				Tservo = 0;
 				Etat = MESURE_Z0;
-				int cx = snprintf(BLUE_ETAT_TX, 100, "MESURE_Z0\n");
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 			}
 
 			break;
@@ -1230,19 +1224,17 @@ void park(void)
 
 
 			Etat = VAL_Z0;
-			int cx = snprintf(BLUE_ETAT_TX, 100, "VAL_Z0\n");
-			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case VAL_Z0 : {
 			while(distance_sonar == 0);
 			position_test[1] = distance_sonar;
 			distance_sonar = 0;
+			int cx = snprintf(BLUE_SONAR_TX, 100, "X = %d cm- Y = %d cm- Z = %d cm\n", (int)position_test[2], (int)position_test[0], (int)position_test[1]);
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
 
 
 			Etat = SEND_ZIGBEE;
-			int cx = snprintf(BLUE_ETAT_TX, 100, "SEND_ZIGBEE\n");
-			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 			break;
 		}
 		case SEND_ZIGBEE : {
@@ -1253,7 +1245,7 @@ void park(void)
 			}
 			Etat = ARRET;
 			Mode = SLEEP;
-			int cx = snprintf(BLUE_ETAT_TX, 100, "FINI\n");
+			int cx = snprintf(BLUE_ETAT_TX, 100, "FINI PARK\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 		}
 	}
@@ -1271,8 +1263,6 @@ void attentePark(void)
 		case ARRET : {
 			if(Mode == GOPARK) {
 				Dist_parcours = 0;
-				int cx = snprintf(BLUE_ETAT_TX, 100, "AVANCE X\n");
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 				HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //lancement de PWM servo moteur
 				getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 				Etat = AVANCE_X;
@@ -1280,34 +1270,21 @@ void attentePark(void)
 			break;
 		}
 		case AVANCE_X : {
-			_DirD = AVANCE;
-			_DirG = AVANCE;
-			_CVitD = V1;
-			_CVitG = V1;
+			avance();
 			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
-			if(getTicks >= 527) {
-				_CVitD = 0;
-				_CVitG = 0;
-				TRotation = 0;
-				int cx = snprintf(BLUE_ETAT_TX, 100, "ROTATION ANTI-HORAIRE\n");
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+			if(abs(getTicks-getTicksBack) >= 527) {
+				stop();
 				getTicksBack = __HAL_TIM_GET_COUNTER(&htim4);    //mesure de nombres des tics
 				Etat = ROTATION_ANTIHORAIRE;
 			}
 			break;
 		}
 		case ROTATION_ANTIHORAIRE : {
-			_DirD = AVANCE;
-			_DirG = RECULE;
-			_CVitD = V1;
-			_CVitG = V1;
+			gauche();
 			getTicks = __HAL_TIM_GET_COUNTER(&htim4);
 
 			if(abs( getTicks - getTicksBack ) >= 290) {
-				int cx = snprintf(BLUE_ETAT_TX, 100, "SERVO_Z\n");
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
-				_CVitD = 0;
-				_CVitG = 0;
+				stop();
 				Tservo = 0;
 				Etat = SERVO_Z;
 			}
@@ -1318,8 +1295,6 @@ void attentePark(void)
 			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, SERVO_CENTRE); // Set to Y0
 
 			if(Tservo >= T_2_S) {
-				int cx = snprintf(BLUE_ETAT_TX, 100, "MESURE_Z\n");
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 				Etat = MESURE_Z;
 			}
 			break;
@@ -1333,40 +1308,42 @@ void attentePark(void)
 		case VAL_Z : {
 			while(distance_sonar == 0);
 			position[2] = distance_sonar; //position = [x, y, z]
-			distance_sonar = 0;
 			Dist_parcours = 0;
-			int cx = snprintf(BLUE_ETAT_TX, 100, "RECULE\n");
+			int cx = snprintf(BLUE_ETAT_TX, 100, "Dist = %d cm -- go = %d cm\n", (int)position[2], (int)position_test[2]);
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
-			getTicksBack = __HAL_TIM_GET_COUNTER(&htim4);    //mesure de nombres des tics
+			getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);    //mesure de nombres des tics
 			Etat = RECULE_Z;
 			break;
 		}
 		case RECULE_Z : {
-			_DirD = RECULE;
-			_DirG = RECULE;
-			_CVitD = V1;
-			_CVitG = V1;
-			getTicks = __HAL_TIM_GET_COUNTER(&htim4);
-			if(abs(getTicks - getTicksBack) >= (abs(position_test[2] - position[2]) + 25)*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
-				_CVitD = 0;
-				_CVitG = 0;
+			if(position[2] > position_test[2]){
+				avance();
+				getTicks = __HAL_TIM_GET_COUNTER(&htim3);
+				if(abs(getTicks - getTicksBack) >= (abs(position_test[2] - position[2]) - 25)*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
+					stop();
+					getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
+					Etat = ROTATION_HORAIRE;
+				}
 
-				int cx = snprintf(BLUE_ETAT_TX, 100, "ROTATION HORAIRE\n");
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
-				getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
-				Etat = ROTATION_HORAIRE;
+
+			}else if (position[2] < position_test[2]) {
+				recule();
+				getTicks = __HAL_TIM_GET_COUNTER(&htim3);
+				if(abs(getTicks - getTicksBack) >= (abs(position_test[2] - position[2]) + 30)*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
+					stop();
+					getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
+					Etat = ROTATION_HORAIRE;
+				}
+
 			}
+
 			break;
 		}
 		case ROTATION_HORAIRE : {
-			_DirD = RECULE ;
-			_DirG = AVANCE ;
-			_CVitD = V1;
-			_CVitG = V1;
+			droite();
 			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
-			if(abs(getTicks - getTicksBack) >= 300){
-				_CVitD = 0;
-				_CVitG = 0;
+			if(abs(getTicks - getTicksBack) >= 380){
+				stop();
 				Etat = MESURE_X;
 			}
 			break;
@@ -1381,21 +1358,17 @@ void attentePark(void)
 			position[0] = distance_sonar; //position = [x, y, z]
 			distance_sonar = 0;
 			Dist_parcours = 0;
-			int cx = snprintf(BLUE_ETAT_TX, 100, "AVANCE FINAL\n");
+			int cx = snprintf(BLUE_ETAT_TX, 100, "Dist = %d cm -- go = %d cm\n", (int)position[0], (int)position_test[0]);
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 			getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 			Etat = AVANCE_FINAL_X;
 			break;
 		}
 		case AVANCE_FINAL_X : {
-			_DirD = AVANCE;
-			_DirG = AVANCE;
-			_CVitD = V1;
-			_CVitG = V1;
+			avance();
 			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
-			if(abs(getTicks - getTicksBack) >= abs(position[0] - position_test[0])*17.58) {
-				_CVitD = 0;
-				_CVitD = 0;
+			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0])-5)*17.58) {
+				stop();
 				Etat = ARRET;
 				Mode = SLEEP;
 			}
@@ -1404,6 +1377,41 @@ void attentePark(void)
 
 	}
 
+}
+
+
+void avance(void) {
+	_DirD = AVANCE;
+	_DirG = AVANCE;
+	_CVitD = V1;
+	_CVitG = V1;
+
+}
+
+void recule(void) {
+	_DirD = RECULE;
+	_DirG = RECULE;
+	_CVitD = V1;
+	_CVitG = V1;
+}
+
+void droite(void) {
+	_DirD = RECULE;
+	_DirG = AVANCE;
+	_CVitD = V1;
+	_CVitG = V1;
+}
+
+void gauche(void) {
+	_DirD = AVANCE;
+	_DirG = RECULE;
+	_CVitD = V1;
+	_CVitG = V1;
+}
+
+void stop(void) {
+	_CVitD = 0;
+	_CVitG = 0;
 }
 
 
@@ -1583,9 +1591,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 		 */
 		distance_sonar = distance_sonar / 98;
 
-
-		int cx = snprintf(BLUE_SONAR_TX, 100, "Distance Sonar : %d cm\n", (int)distance_sonar);
-		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
 	}
 
 }
