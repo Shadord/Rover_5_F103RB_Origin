@@ -82,6 +82,10 @@
 #define DIR1_GPIO_Port GPIOC
 #define TIM_ECHO_SONAR_Pin GPIO_PIN_8
 #define TIM_ECHO_SONAR_GPIO_Port GPIOA
+#define XBEE_RX_Pin GPIO_PIN_9
+#define XBEE_RX_GPIO_Port GPIOA
+#define XBEE_TX_Pin GPIO_PIN_10
+#define XBEE_TX_GPIO_Port GPIOA
 #define TIM_SERVO_OUT_Pin GPIO_PIN_11
 #define TIM_SERVO_OUT_GPIO_Port GPIOA
 #define IR3_out_Pin GPIO_PIN_12
