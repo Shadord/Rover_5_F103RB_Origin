@@ -5,7 +5,7 @@
   ******************************************************************************
   ** This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
+  * USER CODE END. Other portions of this file, whether
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
@@ -133,6 +133,9 @@ uint32_t position_0[3]; // Captage PARK
 uint32_t position_test[] = {0, 0, 0}; // Positions de test de assistpark
 uint32_t position[3]; // POsitions temporaires de park
 
+uint16_t getTicks = 0;
+uint16_t getTicksBack = 0;
+
 
 uint16_t zigbee_state;
 volatile uint32_t distance_sonar = 0;
@@ -238,7 +241,6 @@ int main(void)
   {
 	  Gestion_Commandes();
 	  controle();
-	  //addon();
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
@@ -259,7 +261,7 @@ void SystemClock_Config(void)
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
   RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
@@ -272,7 +274,7 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
@@ -293,11 +295,11 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure the Systick interrupt time 
+    /**Configure the Systick interrupt time
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick 
+    /**Configure the Systick
     */
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
@@ -320,7 +322,8 @@ static void MX_NVIC_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void Gestion_Commandes(void) {
+void Gestion_Commandes(void)
+{
 	enum ETAT {
 		VEILLE,
 		ARRET,
@@ -343,550 +346,560 @@ if (New_CMDE) {
 		New_CMDE = 0;
 		_Dist_parcours = Dist_parcours;
 		Dist_parcours = 0;
-	switch (CMDE) {
-		case STOP: {
-			_CVitD = _CVitG = 0;
-			// Mise en sommeil: STOP mode , reiveil via IT BP1
-			Etat = VEILLE;
-			Mode = SLEEP;
-
-			break;
-		}
-		case START: {
-			// rziveil syteme grace a l'IT BP1
-			Etat = ARRET;
-			Mode = SLEEP;
-
-			break;
-		}
-		case AVANT: {
-			switch (Etat) {
-			case VEILLE: {
+		switch (CMDE) {
+			case STOP:
+			{
+				_CVitD = _CVitG = 0;
+				// Mise en sommeil: STOP mode , reiveil via IT BP1
 				Etat = VEILLE;
 				Mode = SLEEP;
+
 				break;
 			}
-			case ARRET: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = AV1;
-				Mode = ACTIF;
-				break;
-			}
-			case AV1: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = AV2;
-				Mode = ACTIF;
-				break;
-			}
-			case AV2: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V3;
-				_CVitD = V3 ;
-				Etat = AV3;
-				Mode = ACTIF;
-				break;
-			}
-			case AV3: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V3;
-				_CVitD = V3 ;
-				Etat = AV3;
-				Mode = ACTIF;
-				break;
-			}
-			case RV1: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = 0;
-				_CVitD = 0;
+			case START:
+			{
+				// rziveil syteme grace a l'IT BP1
 				Etat = ARRET;
 				Mode = SLEEP;
 
 				break;
 			}
-			case RV2: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = RV1;
-				Mode = ACTIF;
+			case AVANT:
+			{
+				switch (Etat) {
+				case VEILLE: {
+					Etat = VEILLE;
+					Mode = SLEEP;
+					break;
+				}
+				case ARRET: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = AV1;
+					Mode = ACTIF;
+					break;
+				}
+				case AV1: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = AV2;
+					Mode = ACTIF;
+					break;
+				}
+				case AV2: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V3;
+					_CVitD = V3 ;
+					Etat = AV3;
+					Mode = ACTIF;
+					break;
+				}
+				case AV3: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V3;
+					_CVitD = V3 ;
+					Etat = AV3;
+					Mode = ACTIF;
+					break;
+				}
+				case RV1: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = 0;
+					_CVitD = 0;
+					Etat = ARRET;
+					Mode = SLEEP;
+
+					break;
+				}
+				case RV2: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = RV1;
+					Mode = ACTIF;
+					break;
+				}
+				case RV3: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = RV2;
+					Mode = ACTIF;
+					break;
+				}
+				case DV1: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = AV1;
+					Mode = ACTIF;
+					break;
+				}
+				case DV2: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = AV2;
+					Mode = ACTIF;
+					break;
+				}
+				case DV3: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = AV3;
+					Mode = ACTIF;
+					break;
+				}
+				case GV1: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = AV2;
+					Mode = ACTIF;
+					break;
+				}
+				case GV2: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = AV2;
+					Mode = ACTIF;
+					break;
+				}
+				case GV3: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = AV3;
+					Mode = ACTIF;
+					break;
+				}
+				}
 				break;
 			}
-			case RV3: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = RV2;
-				Mode = ACTIF;
+			case ARRIERE:
+			{
+				switch (Etat) {
+				case VEILLE: {
+					Etat = VEILLE;
+					Mode = SLEEP;
+					break;
+				}
+				case ARRET: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = RV1;
+					Mode = ACTIF;
+					break;
+				}
+				case AV1: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = 0;
+					_CVitD = 0;
+					Etat = ARRET;
+					Mode = SLEEP;
+
+					break;
+				}
+				case AV2: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = AV1;
+					Mode = ACTIF;
+					break;
+				}
+				case AV3: {
+					_DirG = AVANCE;
+					_DirD = AVANCE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = AV2;
+					Mode = ACTIF;
+					break;
+				}
+				case RV1: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = RV2;
+					Mode = ACTIF;
+					break;
+				}
+				case RV2: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = RV3;
+					Mode = ACTIF;
+					break;
+				}
+				case RV3: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = RV3;
+					Mode = ACTIF;
+					break;
+				}
+				case DV1: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = RV1;
+					Mode = ACTIF;
+					break;
+				}
+				case DV2: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = RV2;
+					Mode = ACTIF;
+					break;
+				}
+				case DV3: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = RV3;
+					Mode = ACTIF;
+					break;
+				}
+				case GV1: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = RV1;
+					Mode = ACTIF;
+					break;
+				}
+				case GV2: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = RV2;
+					Mode = ACTIF;
+					break;
+				}
+				case GV3: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = RV3;
+					Mode = ACTIF;
+					break;
+				}
+				}
 				break;
 			}
-			case DV1: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = AV1;
-				Mode = ACTIF;
+			case DROITE:
+			{
+				switch (Etat) {
+				case VEILLE: {
+					Etat = VEILLE;
+					Mode = SLEEP;
+					break;
+				}
+				case ARRET: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = DV1;
+					Mode = ACTIF;
+					break;
+				}
+				case AV1: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = DV1;
+					Mode = ACTIF;
+					break;
+				}
+				case AV2: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = DV2;
+					Mode = ACTIF;
+					break;
+				}
+				case AV3: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = DV3;
+					Mode = ACTIF;
+					break;
+				}
+				case RV1: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = DV1;
+					Mode = ACTIF;
+					break;
+				}
+				case RV2: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = DV2;
+					Mode = ACTIF;
+					break;
+				}
+				case RV3: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = DV3;
+					Mode = ACTIF;
+					break;
+				}
+				case DV1: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = DV2;
+					Mode = ACTIF;
+					break;
+				}
+				case DV2: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = DV3;
+					Mode = ACTIF;
+					break;
+				}
+				case DV3: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = DV3;
+					Mode = ACTIF;
+					break;
+				}
+				case GV1: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = 0;
+					_CVitD = 0;
+					Etat = ARRET;
+					Mode = SLEEP;
+
+					break;
+				}
+				case GV2: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = GV1;
+					Mode = ACTIF;
+					break;
+				}
+				case GV3: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = GV2;
+					Mode = ACTIF;
+					break;
+				}
+				}
 				break;
 			}
-			case DV2: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = AV2;
-				Mode = ACTIF;
+			case GAUCHE:
+			{
+				switch (Etat) {
+				case VEILLE: {
+					Etat = VEILLE;
+					Mode = SLEEP;
+					break;
+				}
+				case ARRET: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = GV1;
+					Mode = ACTIF;
+					break;
+				}
+				case AV1: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = GV1;
+					Mode = ACTIF;
+					break;
+				}
+				case AV2: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = GV2;
+					Mode = ACTIF;
+					break;
+				}
+				case AV3: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = GV3;
+					Mode = ACTIF;
+					break;
+				}
+				case RV1: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = GV1;
+					Mode = ACTIF;
+					break;
+				}
+				case RV2: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = GV2;
+					Mode = ACTIF;
+					break;
+				}
+				case RV3: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = GV3;
+					Mode = ACTIF;
+					break;
+				}
+				case DV1: {
+					_DirG = RECULE;
+					_DirD = RECULE;
+					_CVitG = 0;
+					_CVitD = 0;
+					Etat = ARRET;
+					Mode = SLEEP;
+
+					break;
+				}
+				case DV2: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V1;
+					_CVitD = V1;
+					Etat = DV1;
+					Mode = ACTIF;
+					break;
+				}
+				case DV3: {
+					_DirG = AVANCE;
+					_DirD = RECULE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = DV2;
+					Mode = ACTIF;
+					break;
+				}
+				case GV1: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V2;
+					_CVitD = V2;
+					Etat = GV2;
+					Mode = ACTIF;
+					break;
+				}
+				case GV2: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = GV3;
+					Mode = ACTIF;
+					break;
+				}
+				case GV3: {
+					_DirG = RECULE;
+					_DirD = AVANCE;
+					_CVitG = V3;
+					_CVitD = V3;
+					Etat = GV3;
+					Mode = ACTIF;
+					break;
+				}
+				}
 				break;
+
 			}
-			case DV3: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = AV3;
-				Mode = ACTIF;
-				break;
-			}
-			case GV1: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = AV2;
-				Mode = ACTIF;
-				break;
-			}
-			case GV2: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = AV2;
-				Mode = ACTIF;
-				break;
-			}
-			case GV3: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = AV3;
-				Mode = ACTIF;
-				break;
-			}
-			}
-			break;
-		}
-		case ARRIERE: {
-			switch (Etat) {
-			case VEILLE: {
-				Etat = VEILLE;
-				Mode = SLEEP;
-				break;
-			}
-			case ARRET: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = RV1;
-				Mode = ACTIF;
-				break;
-			}
-			case AV1: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = 0;
-				_CVitD = 0;
+			case PARK:
+			{
 				Etat = ARRET;
-				Mode = SLEEP;
+				Mode = PARKMODE;
+				break;
 
-				break;
 			}
-			case AV2: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = AV1;
-				Mode = ACTIF;
-				break;
-			}
-			case AV3: {
-				_DirG = AVANCE;
-				_DirD = AVANCE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = AV2;
-				Mode = ACTIF;
-				break;
-			}
-			case RV1: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = RV2;
-				Mode = ACTIF;
-				break;
-			}
-			case RV2: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = RV3;
-				Mode = ACTIF;
-				break;
-			}
-			case RV3: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = RV3;
-				Mode = ACTIF;
-				break;
-			}
-			case DV1: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = RV1;
-				Mode = ACTIF;
-				break;
-			}
-			case DV2: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = RV2;
-				Mode = ACTIF;
-				break;
-			}
-			case DV3: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = RV3;
-				Mode = ACTIF;
-				break;
-			}
-			case GV1: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = RV1;
-				Mode = ACTIF;
-				break;
-			}
-			case GV2: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = RV2;
-				Mode = ACTIF;
-				break;
-			}
-			case GV3: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = RV3;
-				Mode = ACTIF;
-				break;
-			}
-			}
-			break;
-		}
-		case DROITE: {
-			switch (Etat) {
-			case VEILLE: {
-				Etat = VEILLE;
-				Mode = SLEEP;
-				break;
-			}
-			case ARRET: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = DV1;
-				Mode = ACTIF;
-				break;
-			}
-			case AV1: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = DV1;
-				Mode = ACTIF;
-				break;
-			}
-			case AV2: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = DV2;
-				Mode = ACTIF;
-				break;
-			}
-			case AV3: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = DV3;
-				Mode = ACTIF;
-				break;
-			}
-			case RV1: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = DV1;
-				Mode = ACTIF;
-				break;
-			}
-			case RV2: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = DV2;
-				Mode = ACTIF;
-				break;
-			}
-			case RV3: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = DV3;
-				Mode = ACTIF;
-				break;
-			}
-			case DV1: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = DV2;
-				Mode = ACTIF;
-				break;
-			}
-			case DV2: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = DV3;
-				Mode = ACTIF;
-				break;
-			}
-			case DV3: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = DV3;
-				Mode = ACTIF;
-				break;
-			}
-			case GV1: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = 0;
-				_CVitD = 0;
+			case MOVPARK :
+			{
 				Etat = ARRET;
-				Mode = SLEEP;
-
+				Mode = GOPARK;
 				break;
 			}
-			case GV2: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = GV1;
-				Mode = ACTIF;
-				break;
-			}
-			case GV3: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = GV2;
-				Mode = ACTIF;
-				break;
-			}
-			}
-			break;
-		}
-		case GAUCHE: {
-			switch (Etat) {
-			case VEILLE: {
-				Etat = VEILLE;
-				Mode = SLEEP;
-				break;
-			}
-			case ARRET: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = GV1;
-				Mode = ACTIF;
-				break;
-			}
-			case AV1: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = GV1;
-				Mode = ACTIF;
-				break;
-			}
-			case AV2: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = GV2;
-				Mode = ACTIF;
-				break;
-			}
-			case AV3: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = GV3;
-				Mode = ACTIF;
-				break;
-			}
-			case RV1: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = GV1;
-				Mode = ACTIF;
-				break;
-			}
-			case RV2: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = GV2;
-				Mode = ACTIF;
-				break;
-			}
-			case RV3: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = GV3;
-				Mode = ACTIF;
-				break;
-			}
-			case DV1: {
-				_DirG = RECULE;
-				_DirD = RECULE;
-				_CVitG = 0;
-				_CVitD = 0;
-				Etat = ARRET;
-				Mode = SLEEP;
-
-				break;
-			}
-			case DV2: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V1;
-				_CVitD = V1;
-				Etat = DV1;
-				Mode = ACTIF;
-				break;
-			}
-			case DV3: {
-				_DirG = AVANCE;
-				_DirD = RECULE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = DV2;
-				Mode = ACTIF;
-				break;
-			}
-			case GV1: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V2;
-				_CVitD = V2;
-				Etat = GV2;
-				Mode = ACTIF;
-				break;
-			}
-			case GV2: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = GV3;
-				Mode = ACTIF;
-				break;
-			}
-			case GV3: {
-				_DirG = RECULE;
-				_DirD = AVANCE;
-				_CVitG = V3;
-				_CVitD = V3;
-				Etat = GV3;
-				Mode = ACTIF;
-				break;
-			}
-			}
-			break;
-
-		}
-		case PARK: {
-			Etat = ARRET;
-			Mode = PARKMODE;
-			break;
-
-		}
-		case MOVPARK : {
-			Etat = ARRET;
-			Mode = GOPARK;
-			break;
 		}
 	}
 }
-}
-void controle(void) {
+
+void controle(void)
+{
 
 	if (Tech >= T_200_MS) {
 		Tech = 0;
@@ -901,7 +914,8 @@ void controle(void) {
 }
 
 
-void ACS(void) {
+void ACS(void)
+{
 	enum ETAT {
 		ARRET, ACTIFE
 	};
@@ -995,7 +1009,8 @@ void ACS(void) {
 	}
 }
 
-void Calcul_Vit(void) {
+void Calcul_Vit(void)
+{
 	static int first = 0;
 
 	DistD = __HAL_TIM_GET_COUNTER(&htim3);
@@ -1023,7 +1038,8 @@ void Calcul_Vit(void) {
 	}
 }
 
-void regulateur(void) {
+void regulateur(void)
+{
 	enum ETAT {
 		ARRET, ACTIFE
 	};
@@ -1046,7 +1062,7 @@ void regulateur(void) {
 
 	switch (Etat) {
 	case ARRET: {
-		if (Mode == ACTIF || Mode == PARKMODE || Mode == GOPARK)
+		if ((Mode == ACTIF) || (Mode == PARKMODE) || (Mode == GOPARK))
 			Etat = ACTIFE;
 		else {
 			__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, 0);
@@ -1114,7 +1130,8 @@ void regulateur(void) {
 	}
 }
 
-void park(void) {
+void park(void)
+{
 	enum ETAT {
 			ARRET, SERVO_X0, MESURE_X0, VAL_X0, SERVO_Y0, MESURE_Y0, VAL_Y0, SERVO_Z0, MESURE_Z0, VAL_Z0, SEND_ZIGBEE
 		};
@@ -1254,7 +1271,8 @@ void park(void) {
 }
 
 
-void attentePark(void) {
+void attentePark(void)
+{
 	enum ETAT {
 			ARRET, AVANCE_X, ROTATION_ANTIHORAIRE, SERVO_Z, MESURE_Z, VAL_Z, RECULE_Z, ROTATION_HORAIRE, MESURE_X, VAL_X, AVANCE_FINAL_X
 		};
@@ -1277,31 +1295,29 @@ void attentePark(void) {
 			_CVitD = V1;
 			_CVitG = V1;
 			if(Dist_parcours >= 527) {
-				_CVitD = 0;
-				_CVitG = 0;
+				_DirD = AVANCE;
+				_DirG = RECULE;
+				_CVitD = V1;
+				_CVitG = V1;
 				TRotation = 0;
 				int cx = snprintf(BLUE_ETAT_TX, 100, "ROTATION ANTI-HORAIRE\n");
 				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+				getTicksBack = __HAL_TIM_GET_COUNTER(&htim4);    //mesure de nombres des tics
 				Etat = ROTATION_ANTIHORAIRE;
 			}
 			break;
 		}
 		case ROTATION_ANTIHORAIRE : {
-			_DirD = AVANCE;
-			_DirG = RECULE;
-			_CVitD = V1;
-			_CVitG = V1;
-			Tservo = 0;
-			if(TRotation >= T_2_S/3){
-				_CVitD = 0;
-				_CVitG = 0;
-				if(TRotation >= 2*T_2_S){
 
-				int cx = snprintf(BLUE_ETAT_TX, 100, "SERVO MES\n");
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+
+			getTicks = __HAL_TIM_GET_COUNTER(&htim4);
+
+			if(abs( getTicks - getTicksBack ) >= 300) {
+				_CVitD = _CVitG = 0;
+				Tservo = 0;
 				Etat = SERVO_Z;
-				}
 			}
+
 			break;
 		}
 		case SERVO_Z : {
@@ -1324,10 +1340,9 @@ void attentePark(void) {
 			Dist_parcours = 0;
 			int cx = snprintf(BLUE_ETAT_TX, 100, "RECULE\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
-			Etat = RECULE_Z;
 			break;
 		}
-		case RECULE_Z : {
+		/*case RECULE_Z : {
 			_DirD = RECULE;
 			_DirG = RECULE;
 			_CVitD = V1;
@@ -1379,16 +1394,17 @@ void attentePark(void) {
 				_CVitD = 0;
 				_CVitD = 0;
 				Etat = ARRET;
-				Mode = STOP;
+				Mode = SLEEP;
 			}
 			break;
-		}
+		}*/
 
 	}
 
 }
 
-void addon(void) {// Addon = controleur + ts
+void addon(void)
+{// Addon = controleur + ts
 	if (Taddon >= T_200_MS) { // Periode 200ms d'actualisation
 		Taddon = 0;
 		park();
@@ -1396,7 +1412,8 @@ void addon(void) {// Addon = controleur + ts
 	}
 }
 
-int respectTime(int chrono, int timeToWait) {
+int respectTime(int chrono, int timeToWait)
+{
 	if(chrono >= timeToWait) {
 		chrono = 0;
 		return 1;
@@ -1649,7 +1666,7 @@ void _Error_Handler(char *file, int line)
   * @retval None
   */
 void assert_failed(uint8_t* file, uint32_t line)
-{ 
+{
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
