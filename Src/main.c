@@ -1246,27 +1246,35 @@ void park(void)
 			break;
 		}
 		case SEND_ZIGBEE : {
+			if (adresse_cible == 0) {
 			snprintf(XBEE_TX, 7, "X3A----");
 			HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
+			}else{
+				int cx = snprintf(BLUE_ETAT_TX, 100, "FINI PARK\n");
+				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+				Etat = RECEPTION_ADDR;
+			}
 
 
 
-			int cx = snprintf(BLUE_ETAT_TX, 100, "FINI PARK\n");
-			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
-			Etat = RECEPTION_ADDR;
 			break;
 		}
 		case RECEPTION_ADDR : {
-			if (adresse_cible != 0) {
-				int cx = snprintf(BLUE_ETAT_TX, 100, "ADRESSE RECUE : %d\n", (char)adresse_cible);
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 
+			int cx = snprintf(BLUE_ETAT_TX, 100, "ADRESSE RECUE : %d\n", (char)adresse_cible);
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+
+			if(position_robot_recue == 0) {
 				snprintf(XBEE_TX, 7, "X3P%c%c%c%c",(char)adresse_cible,(char)position_test[2], (char)position_test[0], (char)position_test[1]);
 				HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
 
+			}else{
 				Etat = ARRET;
 				Mode = SLEEP;
 			}
+
+
+
 
 			break;
 		}
@@ -1400,7 +1408,7 @@ void attentePark(void)
 			avance();
 			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
 
-			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0])-10)*17.58) {
+			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0])-5)*17.58) {
 				stop();
 				Etat = MODE_PARK;
 			}
@@ -1528,13 +1536,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}else if (huart->Instance == USART1) {
 		int cx = snprintf(BLUE_SONAR_TX, 100, "XBee recu\n");
 		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
-		if(XBEE_RX[0] == 'X' && XBEE_RX[1] == '3') {
+		if(XBEE_RX[0] == 'X' && (XBEE_RX[1] == addr_robot || XBEE_RX[1] == 'X')) {
 			cx = snprintf(BLUE_SONAR_TX, 100, "XBee trié\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
 			switch (XBEE_RX[2]) {
 				case 'A' : { //réception demande d'adresse
 					if( Mode == GOPARK) {
-						snprintf(XBEE_TX, 7, "X3a%d---", ADDR_ROBOT);
+						adresse_cible = XBEE_RX[1];
+						snprintf(XBEE_TX, 7, "X%ca%d---", adresse_cible, ADDR_ROBOT);
 						HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
 					}
 					break;
@@ -1554,6 +1563,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 							position_test[0] = XBEE_RX[5]; //Y
 							position_test[1] = XBEE_RX[6]; //Z
 							position_received = 1;
+							snprintf(XBEE_TX, 7, "X3a%d---", ADDR_ROBOT);
+							HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
 						}
 					}
 
