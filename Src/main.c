@@ -115,7 +115,7 @@ char BLUE_ETAT_TX[100];
 char BLUE_SONAR_TX[100];
 char BLUE_DIST_TX[100];
 int position_received = 0;
-char adresse_cible;
+char adresse_cible = 0;
 
 uint16_t _DirG, _DirD, DirD, DirG; // Futures directions des chenilles D et G et les actuelles
 uint16_t _CVitD, CVitD = 0; // Future vitesse D et actuelle
@@ -1245,7 +1245,7 @@ void park(void)
 			break;
 		}
 		case SEND_ZIGBEE : {
-			snprintf(XBEE_TX, 7, "X3A");
+			snprintf(XBEE_TX, 7, "X3A----");
 			HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
 
 
@@ -1253,16 +1253,16 @@ void park(void)
 			int cx = snprintf(BLUE_ETAT_TX, 100, "FINI PARK\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 			Etat = RECEPTION_ADDR;
-			Mode = SLEEP;
 			break;
 		}
 		case RECEPTION_ADDR : {
 			if (adresse_cible != 0) {
+				int cx = snprintf(BLUE_ETAT_TX, 100, "ADRESSE RECUE : %d\n", (char)adresse_cible);
+				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
+
 				snprintf(XBEE_TX, 7, "X3P%c%c%c%c",(char)adresse_cible,(char)position_test[2], (char)position_test[0], (char)position_test[1]);
 				HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
 
-				int cx = snprintf(BLUE_ETAT_TX, 100, "ADRESSE RECUE : %d\n", (char)adresse_cible);
-				HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 				Etat = ARRET;
 				Mode = SLEEP;
 			}
@@ -1293,9 +1293,11 @@ void attentePark(void)
 		case DIALOGUE_ROBOT_MAITRE : {
 
 
+			if(position_received) {
+				getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
+				Etat = AVANCE_X;
+			}
 
-			getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
-			Etat = AVANCE_X;
 			break;
 		}
 		case AVANCE_X : {
@@ -1527,7 +1529,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			switch (XBEE_RX[2]) {
 				case 'A' : { //réception demande d'adresse
 					if( Mode == GOPARK) {
-						snprintf(XBEE_TX, 7, "X3a%d", ADDR_ROBOT);
+						snprintf(XBEE_TX, 7, "X3a%d---", ADDR_ROBOT);
 						HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
 					}
 					break;
@@ -1536,6 +1538,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 					if(Mode==PARKMODE) {
 						adresse_cible  = XBEE_RX[3];
 					}
+					int cx = snprintf(BLUE_SONAR_TX, 100, "XBee recu\n");
+					HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
 					break;
 				}
 				case 'P' : { //ordre de se garer
@@ -1622,7 +1626,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 		 * Chaque tick est dï¿½clenchï¿½ a chaque 56,25 us (64MHz + pre de 36)
 		 * sachant que l'on a au plus 37,7 ms de distance, ca donne 667 ticks max.
 		 * Sachant donc que 667 correspond a 650 cm alors x cm correspondent a ?
-		 * distance(cm) =  x*650/667
+		 * distance(m) =  x*650/667
 		 */
 		distance_sonar = distance_sonar / 98;
 
