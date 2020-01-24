@@ -1286,7 +1286,7 @@ void park(void)
 void attentePark(void)
 {
 	enum ETAT {
-			ARRET, DIALOGUE_ROBOT_MAITRE, AVANCE_X, ROTATION_ANTIHORAIRE, SERVO_Z, MESURE_Z, VAL_Z, RECULE_Z, ROTATION_HORAIRE, MESURE_X, VAL_X, AVANCE_FINAL_X, MODE_PARK
+			ARRET, DIALOGUE_ROBOT_MAITRE, AVANCE_X, ROTATION_ANTIHORAIRE, SERVO_Z, MESURE_Z, VAL_Z, RECULE_Z, ROTATION_HORAIRE,SONAR_X,  MESURE_X, VAL_X, AVANCE_FINAL_X, MODE_PARK
 		};
 	static enum ETAT Etat = ARRET;
 
@@ -1357,20 +1357,20 @@ void attentePark(void)
 			break;
 		}
 		case RECULE_Z : {
-			if(position[2] > position_test[2]){
+			if(position[2] > position_test[2]+15){
 				avance();
 				getTicks = __HAL_TIM_GET_COUNTER(&htim3);
-				if(abs(getTicks - getTicksBack) >= (abs(position_test[2]+20 - position[2]))*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
+				if(abs(getTicks - getTicksBack) >= (abs(position_test[2]+30 - position[2]))*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
 					stop();
 					getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 					Etat = ROTATION_HORAIRE;
 				}
 
 
-			}else if (position[2] < position_test[2]) {
+			}else if (position[2] < position_test[2]+15) {
 				recule();
 				getTicks = __HAL_TIM_GET_COUNTER(&htim3);
-				if(abs(getTicks - getTicksBack) >= (abs(position_test[2]+20 - position[2]))*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
+				if(abs(getTicks - getTicksBack) >= (abs(position_test[2]+10 - position[2]))*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
 					stop();
 					getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 					Etat = ROTATION_HORAIRE;
@@ -1385,11 +1385,21 @@ void attentePark(void)
 			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
 			if(abs(getTicks - getTicksBack) >= 380){
 				stop();
+				Tservo = 0;
+				Etat = SONAR_X;
+			}
+			break;
+		}
+		case SONAR_X : {
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, SERVO_CENTRE); // Set to Y0
+
+			if(Tservo >= T_2_S) {
 				Etat = MESURE_X;
 			}
 			break;
 		}
 		case MESURE_X : {
+
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 			Etat = VAL_X;
 			break;
@@ -1409,7 +1419,7 @@ void attentePark(void)
 			avance();
 			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
 
-			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0]))*17.58) {
+			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0])-13)*17.58) {
 				stop();
 				adresse_cible = 0;
 				position_robot_recue = 0;
@@ -1552,7 +1562,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 					if( Mode == GOPARK) {
 
 						adresse_cible = XBEE_RX[3];
-						snprintf(XBEE_TX, 7, "X%ca%d---", adresse_cible, addr_robot);
+						snprintf(XBEE_TX, 7, "X%ca%c---", adresse_cible, addr_robot);
 						HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
 
 					}
@@ -1580,7 +1590,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 							position_test[1] = XBEE_RX[6]; //Z
 							position_received = 1;
 
-							snprintf(XBEE_TX, 7, "X%cp----", addr_robot);
+							snprintf(XBEE_TX, 7, "X%cp----", adresse_cible);
 							HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
 
 					}
