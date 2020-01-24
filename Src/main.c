@@ -115,6 +115,7 @@ char BLUE_ETAT_TX[100];
 char BLUE_SONAR_TX[100];
 char BLUE_DIST_TX[100];
 int position_received = 0;
+int position_robot_recue = 0;
 char adresse_cible = 0;
 char addr_robot = '2';
 
@@ -1247,7 +1248,7 @@ void park(void)
 		}
 		case SEND_ZIGBEE : {
 			if (adresse_cible == 0) {
-			snprintf(XBEE_TX, 7, "X3A----");
+			snprintf(XBEE_TX, 7, "XXA%c---", addr_robot);
 			HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
 			}else{
 				int cx = snprintf(BLUE_ETAT_TX, 100, "FINI PARK\n");
@@ -1265,7 +1266,7 @@ void park(void)
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 
 			if(position_robot_recue == 0) {
-				snprintf(XBEE_TX, 7, "X3P%c%c%c%c",(char)adresse_cible,(char)position_test[2], (char)position_test[0], (char)position_test[1]);
+				snprintf(XBEE_TX, 7, "X%cP%c%c%c%c",adresse_cible, (char)adresse_cible,(char)position_test[2], (char)position_test[0], (char)position_test[1]);
 				HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
 
 			}else{
@@ -1359,7 +1360,7 @@ void attentePark(void)
 			if(position[2] > position_test[2]){
 				avance();
 				getTicks = __HAL_TIM_GET_COUNTER(&htim3);
-				if(abs(getTicks - getTicksBack) >= (abs(position_test[2] - position[2]) - 25)*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
+				if(abs(getTicks - getTicksBack) >= (abs(position_test[2]+20 - position[2]))*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
 					stop();
 					getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 					Etat = ROTATION_HORAIRE;
@@ -1369,7 +1370,7 @@ void attentePark(void)
 			}else if (position[2] < position_test[2]) {
 				recule();
 				getTicks = __HAL_TIM_GET_COUNTER(&htim3);
-				if(abs(getTicks - getTicksBack) >= (abs(position_test[2] - position[2]) + 30)*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
+				if(abs(getTicks - getTicksBack) >= (abs(position_test[2]+20 - position[2]))*17.58) { //conversion : 334 tops = 1 tour de roue = 19cm
 					stop();
 					getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 					Etat = ROTATION_HORAIRE;
@@ -1408,8 +1409,10 @@ void attentePark(void)
 			avance();
 			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
 
-			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0])-5)*17.58) {
+			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0]))*17.58) {
 				stop();
+				adresse_cible = 0;
+				position_robot_recue = 0;
 				Etat = MODE_PARK;
 			}
 			break;
@@ -1534,44 +1537,69 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 
 	}else if (huart->Instance == USART1) {
+
 		int cx = snprintf(BLUE_SONAR_TX, 100, "XBee recu\n");
 		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
+
 		if(XBEE_RX[0] == 'X' && (XBEE_RX[1] == addr_robot || XBEE_RX[1] == 'X')) {
+
 			cx = snprintf(BLUE_SONAR_TX, 100, "XBee trié\n");
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
+
 			switch (XBEE_RX[2]) {
+
 				case 'A' : { //réception demande d'adresse
 					if( Mode == GOPARK) {
-						adresse_cible = XBEE_RX[1];
-						snprintf(XBEE_TX, 7, "X%ca%d---", adresse_cible, ADDR_ROBOT);
+
+						adresse_cible = XBEE_RX[3];
+						snprintf(XBEE_TX, 7, "X%ca%d---", adresse_cible, addr_robot);
 						HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
+
 					}
 					break;
 				}
+
 				case 'a' : {//réception adresse
 					if(Mode==PARKMODE) {
+
 						adresse_cible  = XBEE_RX[3];
+
 					}
+
 					int cx = snprintf(BLUE_SONAR_TX, 100, "XBee recu\n");
 					HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
+
 					break;
 				}
+
 				case 'P' : { //ordre de se garer
 					if(Mode==GOPARK) {
-						if(XBEE_RX[3] == addr_robot) {
+
 							position_test[2] = XBEE_RX[4]; //X
 							position_test[0] = XBEE_RX[5]; //Y
 							position_test[1] = XBEE_RX[6]; //Z
 							position_received = 1;
-							snprintf(XBEE_TX, 7, "X3a%d---", ADDR_ROBOT);
+
+							snprintf(XBEE_TX, 7, "X%cp----", addr_robot);
 							HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
-						}
+
+					}
+
+					break;
+				}
+
+				case 'p' : {
+					if(Mode==PARKMODE) {
+
+						position_robot_recue = 1;
+
 					}
 
 					break;
 				}
 			}
 		}
+
 		HAL_UART_Receive_IT(&huart1, XBEE_RX, 7);
 
 
