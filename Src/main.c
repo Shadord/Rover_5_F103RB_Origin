@@ -79,7 +79,7 @@
 #define SERVO_CENTRE	2300
 #define SERVO_GAUCHE	7100
 
-#define ADDR_ROBOT 3
+#define ADDR_ROBOT 2
 
 enum CMDE {
 	START,
@@ -116,6 +116,7 @@ char BLUE_SONAR_TX[100];
 char BLUE_DIST_TX[100];
 int position_received = 0;
 char adresse_cible = 0;
+char addr_robot = '2';
 
 uint16_t _DirG, _DirD, DirD, DirG; // Futures directions des chenilles D et G et les actuelles
 uint16_t _CVitD, CVitD = 0; // Future vitesse D et actuelle
@@ -1276,7 +1277,7 @@ void park(void)
 void attentePark(void)
 {
 	enum ETAT {
-			ARRET, DIALOGUE_ROBOT_MAITRE, AVANCE_X, ROTATION_ANTIHORAIRE, SERVO_Z, MESURE_Z, VAL_Z, RECULE_Z, ROTATION_HORAIRE, MESURE_X, VAL_X, AVANCE_FINAL_X
+			ARRET, DIALOGUE_ROBOT_MAITRE, AVANCE_X, ROTATION_ANTIHORAIRE, SERVO_Z, MESURE_Z, VAL_Z, RECULE_Z, ROTATION_HORAIRE, MESURE_X, VAL_X, AVANCE_FINAL_X, MODE_PARK
 		};
 	static enum ETAT Etat = ARRET;
 
@@ -1399,11 +1400,15 @@ void attentePark(void)
 			avance();
 			getTicks = __HAL_TIM_GET_COUNTER(&htim3);
 
-			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0])-5)*17.58) {
+			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0])-10)*17.58) {
 				stop();
-				Etat = ARRET;
-				Mode = SLEEP;
+				Etat = MODE_PARK;
 			}
+			break;
+		}
+		case MODE_PARK : {
+			Etat = ARRET;
+			Mode = PARKMODE;
 			break;
 		}
 
@@ -1544,7 +1549,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				}
 				case 'P' : { //ordre de se garer
 					if(Mode==GOPARK) {
-						if(XBEE_RX[3] == ADDR_ROBOT) {
+						if(XBEE_RX[3] == addr_robot) {
 							position_test[2] = XBEE_RX[4]; //X
 							position_test[0] = XBEE_RX[5]; //Y
 							position_test[1] = XBEE_RX[6]; //Z
