@@ -75,11 +75,25 @@
 #define CKd_G 0
 #define DELTA 0x50
 
+// Variable du PWM compare servo-moteur
 #define SERVO_DROITE	800
 #define SERVO_CENTRE	2300
 #define SERVO_GAUCHE	7100
 
-#define ADDR_ROBOT 2
+
+/*
+Lorsque on envoit une commande en bluetooth avec le téléphone, on envoit :
+Avance = FX (X = 1, 2, 3)
+Recule = BX
+Droite = RX
+Gauche = LX
+Park = W/w
+Movpark = U/u
+
+Une fois cette variable récupéré, on va mettre NewCmde =1 (dans l'intérruption) et dans gestion_commande() on va détecter si on a recue une commande
+On check la commande que c'est et surtout l'état dans lequel on est...
+Parce que si on envoit F alors qu'on avance déja, on doit augmenter la vitesse alors que si on est dans recule, on s'arrete
+*/
 
 enum CMDE {
 	START,
@@ -91,33 +105,43 @@ enum CMDE {
 	PARK,
 	MOVPARK
 };
+
 volatile enum CMDE CMDE;
+volatile unsigned char New_CMDE = 0; // Si ya une nouvelle commande
+
+// Mode de fonctionnement du robot
 enum MODE {
 	SLEEP, ACTIF, PARKMODE, GOPARK
 };
+
 volatile enum MODE Mode; // Mode du robot en cours (avancer / Reculer etc... ou MOVPARK / PARK)
-volatile unsigned char New_CMDE = 0; // Si ya une nouvelle commande
+
+
+
 volatile uint16_t Dist_ACS_1, Dist_ACS_2, Dist_ACS_3, Dist_ACS_4, VBat; // Valeurs ADC
 volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
 
 volatile unsigned int Taddon = 0;
-volatile unsigned int Tservo = 0;
+volatile unsigned int Tservo = 0; // Permet d'attendre que le servo se positionne (2 secondes minimum)
 
 volatile unsigned int TRotation = 0;
 volatile unsigned int T_sonar = 0; // Temps permettant de faire une mesure tous les X ms
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
+
+
 uint8_t BLUE_RX; // Buffer des commandes bluetooth recues
 uint8_t XBEE_RX[7]; // ZIGBEE RECUES
+
+
 char XBEE_TX[7]; // ZIGBEE TRANSMISES
-char BLUE_ETAT_TX[100];
+char BLUE_ETAT_TX[100]; // Bluetooth recues
 char BLUE_SONAR_TX[100];
-char BLUE_DIST_TX[100];
-int position_received = 0;
-int position_robot_recue = 0;
-char adresse_cible = 0;
-char addr_robot = '2';
+volatile int position_recue = 0;
+volatile int confirmation_reception_position = 0;
+volatile char adresse_cible_xbee = 0;
+volatile char adresse_robot = '2';
 
 uint16_t _DirG, _DirD, DirD, DirG; // Futures directions des chenilles D et G et les actuelles
 uint16_t _CVitD, CVitD = 0; // Future vitesse D et actuelle
@@ -136,15 +160,13 @@ uint32_t Dist;
 uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
 
-uint32_t position_0[3]; // Captage PARK
-uint32_t position_test[] = {0, 0, 0}; // Positions de test de assistpark
+
+volatile uint32_t position_test[] = {0, 0, 0}; // Positions de test de assistpark
 uint32_t position[3]; // POsitions temporaires de park
 
 uint16_t getTicks = 0;
 uint16_t getTicksBack = 0;
 
-
-uint16_t zigbee_state;
 volatile uint32_t distance_sonar = 0;
 /* USER CODE END PV */
 
@@ -1032,8 +1054,6 @@ void Calcul_Vit(void)
 
 	DistD = __HAL_TIM_GET_COUNTER(&htim3);
 	DistG = __HAL_TIM_GET_COUNTER(&htim4);
-	int cx = snprintf(BLUE_DIST_TX, 100, "DistG = %d ---- DistD = %d\n", DistG, DistD);
-	HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_DIST_TX, cx, HAL_MAX_DELAY);
 
 	VitD = abs(DistD - DistD_old);
 	VitG = abs(DistG - DistG_old);
@@ -1247,8 +1267,8 @@ void park(void)
 			break;
 		}
 		case SEND_ZIGBEE : {
-			if (adresse_cible == 0) {
-			snprintf(XBEE_TX, 7, "XXA%c---", addr_robot);
+			if (adresse_cible_xbee == 0) {
+			snprintf(XBEE_TX, 7, "XXA%c---", adresse_robot);
 			HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
 			}else{
 				int cx = snprintf(BLUE_ETAT_TX, 100, "FINI PARK\n");
@@ -1262,11 +1282,11 @@ void park(void)
 		}
 		case RECEPTION_ADDR : {
 
-			int cx = snprintf(BLUE_ETAT_TX, 100, "ADRESSE RECUE : %d\n", (char)adresse_cible);
+			int cx = snprintf(BLUE_ETAT_TX, 100, "ADRESSE RECUE : %d\n", (char)adresse_cible_xbee);
 			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 
-			if(position_robot_recue == 0) {
-				snprintf(XBEE_TX, 7, "X%cP%c%c%c%c",adresse_cible, (char)adresse_cible,(char)position_test[2], (char)position_test[0], (char)position_test[1]);
+			if(confirmation_reception_position == 0) {
+				snprintf(XBEE_TX, 7, "X%cP%c%c%c%c",adresse_cible_xbee, (char)adresse_cible_xbee,(char)position_test[2], (char)position_test[0], (char)position_test[1]);
 				HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY); //demande d'adresse
 
 			}else{
@@ -1303,7 +1323,7 @@ void attentePark(void)
 		case DIALOGUE_ROBOT_MAITRE : {
 
 
-			if(position_received) {
+			if(position_recue) {
 				getTicksBack = __HAL_TIM_GET_COUNTER(&htim3);
 				Etat = AVANCE_X;
 			}
@@ -1421,8 +1441,8 @@ void attentePark(void)
 
 			if(abs(getTicks - getTicksBack) >= (abs(position[0] - position_test[0])-13)*17.58) {
 				stop();
-				adresse_cible = 0;
-				position_robot_recue = 0;
+				adresse_cible_xbee = 0;
+				confirmation_reception_position = 0;
 				Etat = MODE_PARK;
 			}
 			break;
@@ -1548,36 +1568,36 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	}else if (huart->Instance == USART1) {
 
-		int cx = snprintf(BLUE_SONAR_TX, 100, "XBee recu\n");
-		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
+		int cx = snprintf(BLUE_ETAT_TX, 100, "XBee recu\n");
+		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 
-		if(XBEE_RX[0] == 'X' && (XBEE_RX[1] == addr_robot || XBEE_RX[1] == 'X')) {
+		if(XBEE_RX[0] == 'X' && (XBEE_RX[1] == adresse_robot || XBEE_RX[1] == 'X')) {
 
-			cx = snprintf(BLUE_SONAR_TX, 100, "XBee tri�\n");
-			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
+			cx = snprintf(BLUE_ETAT_TX, 100, "XBee tri\n");
+			HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 
 			switch (XBEE_RX[2]) {
 
-				case 'A' : { //r�ception demande d'adresse
+				case 'A' : { //r�ception demande d'adresse
 					if( Mode == GOPARK) {
 
-						adresse_cible = XBEE_RX[3];
-						snprintf(XBEE_TX, 7, "X%ca%c---", adresse_cible, addr_robot);
+						adresse_cible_xbee = XBEE_RX[3];
+						snprintf(XBEE_TX, 7, "X%ca%c---", adresse_cible_xbee, adresse_robot);
 						HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
 
 					}
 					break;
 				}
 
-				case 'a' : {//r�ception adresse
+				case 'a' : {//r�ception adresse
 					if(Mode==PARKMODE) {
 
-						adresse_cible  = XBEE_RX[3];
+						adresse_cible_xbee  = XBEE_RX[3];
 
 					}
 
-					int cx = snprintf(BLUE_SONAR_TX, 100, "XBee recu\n");
-					HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
+					int cx = snprintf(BLUE_ETAT_TX, 100, "XBee recu\n");
+					HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 
 					break;
 				}
@@ -1588,9 +1608,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 							position_test[2] = XBEE_RX[4]; //X
 							position_test[0] = XBEE_RX[5]; //Y
 							position_test[1] = XBEE_RX[6]; //Z
-							position_received = 1;
+							position_recue = 1;
 
-							snprintf(XBEE_TX, 7, "X%cp----", adresse_cible);
+							snprintf(XBEE_TX, 7, "X%cp----", adresse_cible_xbee);
 							HAL_UART_Transmit(&huart1, (uint8_t*) XBEE_TX, 7, HAL_MAX_DELAY);
 
 					}
@@ -1601,7 +1621,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				case 'p' : {
 					if(Mode==PARKMODE) {
 
-						position_robot_recue = 1;
+						confirmation_reception_position = 1;
 
 					}
 
@@ -1695,12 +1715,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 	if (TOGGLE) {
 		CMDE = STOP;
-		int cx = snprintf(BLUE_SONAR_TX, 100, "Robot STOP\n");
-		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
+		int cx = snprintf(BLUE_ETAT_TX, 100, "Robot STOP\n");
+		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 	}else {
 		CMDE = START;
-		int cx = snprintf(BLUE_SONAR_TX, 100, "Robot START\n");
-		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_SONAR_TX, cx, HAL_MAX_DELAY);
+		int cx = snprintf(BLUE_ETAT_TX, 100, "Robot START\n");
+		HAL_UART_Transmit(&huart3, (uint8_t*) BLUE_ETAT_TX, cx, HAL_MAX_DELAY);
 	}
 
 	TOGGLE = ~TOGGLE;
