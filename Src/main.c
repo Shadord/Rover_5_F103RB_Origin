@@ -141,7 +141,7 @@ char BLUE_SONAR_TX[100];
 volatile int position_recue = 0;
 volatile int confirmation_reception_position = 0;
 volatile char adresse_cible_xbee = 0;
-volatile char adresse_robot = '2';
+volatile char adresse_robot = 'B';
 
 uint16_t _DirG, _DirD, DirD, DirG; // Futures directions des chenilles D et G et les actuelles
 uint16_t _CVitD, CVitD = 0; // Future vitesse D et actuelle
